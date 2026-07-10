@@ -1,0 +1,21 @@
+# Jellyfin 插件构建元数据
+# 详见 https://github.com/jellyfin/jellyfin-plugin-template
+
+--- !Api
+Version: 1
+ManifestVersion: 1
+Name: ShortVideo
+Publisher: YourName
+Owner: YourName
+Category: General
+Description: 抖音式刷短视频入口，从 Jellyfin 媒体库中筛选短时长视频，提供竖屏全屏上下滑动播放体验
+Overview: 在主界面加入"短视频"入口，进入竖屏全屏播放器，上下滑动切换下一条短视频。
+Versions:
+  - Version: "1.0.0.0"
+    Changelog: |2-
+      首个版本：最小可用
+        - 从媒体库筛选短时长视频
+        - 提供 /ShortVideo/Page、/ShortVideo/Next、/ShortVideo/Stream/{id} 三个端点
+        - 竖屏全屏滑动播放器页面
+    TargetAbi: "10.11.0.0"
+    SourceUrl: https://github.com/YourName/jellyfin-plugin-shortvideo/releases/download/v1.0.0.0/jellyfin-plugin-shortvideo_v1.0.0.0.zip

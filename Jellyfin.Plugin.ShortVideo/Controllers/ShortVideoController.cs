@@ -1,0 +1,257 @@
+using System.Net.Mime;
+using System.Reflection;
+using Jellyfin.Plugin.ShortVideo.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+
+namespace Jellyfin.Plugin.ShortVideo.Controllers;
+
+/// <summary>
+/// 短视频插件的 REST API 与页面入口。
+/// 路由前缀固定为插件名，最终端点形如 /ShortVideo/Page。
+/// </summary>
+[ApiController]
+[Route("ShortVideo")]
+public class ShortVideoController : ControllerBase
+{
+    private readonly IFeedService _feedService;
+    private readonly ILogger<ShortVideoController> _logger;
+
+    public ShortVideoController(
+        IFeedService feedService,
+        ILogger<ShortVideoController> logger)
+    {
+        _feedService = feedService;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// 返回竖屏滑动播放器 HTML 页面。
+    /// 访问方式：/ShortVideo/Page?api_key=YOUR_KEY
+    ///
+    /// 注意：端点本身 AllowAnonymous（因为主界面点击跳转过来时不一定带 cookie），
+    /// 但页面内 JS 调用 /NextBatch 必须认证通过。api_key 通过 query 传入并注入页面。
+    /// </summary>
+    [HttpGet("Page")]
+    [AllowAnonymous]
+    public IActionResult Page([FromQuery] string? api_key)
+    {
+        _logger.LogInformation("ShortVideo Controller: 收到 /ShortVideo/Page 请求, api_key={HasKey}, UserAgent={UA}",
+            string.IsNullOrEmpty(api_key) ? "(空,尝试从请求获取)" : "(有)", Request.Headers.UserAgent.ToString());
+
+        var html = LoadEmbeddedHtml();
+        var token = api_key ?? GetApiKeyFromRequest();
+        _logger.LogInformation("ShortVideo Controller: Page 使用 token = {Token}", string.IsNullOrEmpty(token) ? "(空)" : token[..Math.Min(8, token.Length)] + "...");
+        html = html.Replace("__APIKEY__", token);
+        html = html.Replace("__BASEURL__", GetBaseUrl());
+        _logger.LogInformation("ShortVideo Controller: 返回 HTML 页面, 大小={Bytes} 字节", html.Length);
+        return Content(html, MediaTypeNames.Text.Html);
+    }
+
+    /// <summary>
+    /// 返回下一条短视频信息。
+    /// </summary>
+    [HttpGet("Next")]
+    [AllowAnonymous]
+    public IActionResult Next()
+    {
+        _logger.LogInformation("ShortVideo Controller: 收到 /ShortVideo/Next 请求");
+        var item = _feedService.Next();
+        if (item == null)
+        {
+            _logger.LogWarning("ShortVideo Controller: /Next 返回 null (没有短视频)");
+            return NotFound(new { message = "No short videos found. Check library and MaxDurationSeconds." });
+        }
+
+        // 用当前请求的 token 替换占位符
+        var token = GetApiKey();
+        item.StreamUrl = item.StreamUrl.Replace("__APIKEY__", token);
+        _logger.LogInformation("ShortVideo Controller: /Next 返回 item: Name={Name}, Duration={Dur}s", item.Name, item.DurationSeconds);
+        return Ok(item);
+    }
+
+    /// <summary>
+    /// 批量预取下 N 条。
+    /// </summary>
+    [HttpGet("NextBatch")]
+    [AllowAnonymous]
+    public IActionResult NextBatch()
+    {
+        _logger.LogInformation("ShortVideo Controller: 收到 /ShortVideo/NextBatch 请求");
+        var batch = _feedService.NextBatch();
+        var token = GetApiKey();
+        foreach (var i in batch)
+        {
+            i.StreamUrl = i.StreamUrl.Replace("__APIKEY__", token);
+        }
+
+        _logger.LogInformation("ShortVideo Controller: /NextBatch 返回 {Count} 条", batch.Count);
+        return Ok(batch);
+    }
+
+    /// <summary>
+    /// 强制刷新候选池（手动触发，便于测试）。
+    /// </summary>
+    [HttpPost("Reload")]
+    [AllowAnonymous]
+    public IActionResult Reload()
+    {
+        _logger.LogInformation("ShortVideo Controller: 收到 /ShortVideo/Reload 请求");
+        _feedService.Reload();
+        return Ok(new { message = "reloaded" });
+    }
+
+    /// <summary>
+    /// 注入到 Jellyfin 主界面的 JS 脚本。
+    /// index.html 里的 &lt;script src="/ShortVideo/Inject.js"&gt; 会加载本端点。
+    /// 作用：在左侧主导航插入「短视频」入口按钮，点击跳转 /ShortVideo/Page。
+    /// </summary>
+    [HttpGet("Inject.js")]
+    [AllowAnonymous]
+    public IActionResult InjectJs()
+    {
+        _logger.LogInformation("ShortVideo Controller: 收到 /ShortVideo/Inject.js 请求 (来自主界面加载)");
+        var js = NavEntryScript;
+        return Content(js, "application/javascript");
+    }
+
+    // ---- 工具方法 ----
+
+    /// <summary>
+    /// 从当前请求获取 API Key：优先 query，再 header。
+    /// 用于 [Authorize] 端点，请求已认证，所以 key 一定存在（或为空但鉴权已通过）。
+    /// </summary>
+    private string GetApiKey()
+    {
+        return GetApiKeyFromRequest();
+    }
+
+    /// <summary>
+    /// 从请求中解析 API Key。AllowAnonymous 端点也可用。
+    /// </summary>
+    private string GetApiKeyFromRequest()
+    {
+        if (Request.Query.TryGetValue("api_key", out var q) && !string.IsNullOrEmpty(q))
+        {
+            return q.ToString();
+        }
+
+        if (Request.Headers.TryGetValue("X-Emby-Token", out var h) && !string.IsNullOrEmpty(h))
+        {
+            return h.ToString();
+        }
+
+        // 兜底：Authorization header
+        var auth = Request.Headers.Authorization.FirstOrDefault();
+        if (!string.IsNullOrEmpty(auth) && auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return auth.Substring("Bearer ".Length);
+        }
+
+        // 兜底：Cookie（Jellyfin 登录后可能设置此 cookie）
+        if (Request.Cookies.TryGetValue("X-Emby-Token", out var c) && !string.IsNullOrEmpty(c))
+        {
+            return c;
+        }
+
+        return string.Empty;
+    }
+
+    private string GetBaseUrl()
+    {
+        var url = $"{Request.Scheme}://{Request.Host}";
+        return url;
+    }
+
+    /// <summary>
+    /// 读取嵌入资源 Web/shortvideo.html。
+    /// </summary>
+    private static string LoadEmbeddedHtml()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        var resourceName = "Jellyfin.Plugin.ShortVideo.Web.shortvideo.html";
+
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream == null)
+        {
+            return "<html><body><h1>shortvideo.html 嵌入资源缺失</h1></body></html>";
+        }
+
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>
+    /// 注入到主界面的 JS：在主导航插入「短视频」入口。
+    /// 轮询等待 SPA 渲染出导航容器后插入，监听 URL 变化防止 SPA 重渲染丢失。
+    /// </summary>
+    private const string NavEntryScript = @"
+(function() {
+    'use strict';
+
+    var maxAttempts = 50;
+    var attempts = 0;
+    var timer = setInterval(tryInject, 400);
+
+    function tryInject() {
+        attempts++;
+        if (attempts > maxAttempts) {
+            clearInterval(timer);
+            return;
+        }
+
+        var nav = document.querySelector('.mainDrawer .mainDrawer-scrollContainer')
+               || document.querySelector('.mainDrawer-scrollContainer')
+               || document.querySelector('.mainDrawer')
+               || document.querySelector('.navMenuContainer');
+        if (!nav) return;
+
+        if (document.getElementById('shortvideo-nav-entry')) {
+            clearInterval(timer);
+            return;
+        }
+
+        clearInterval(timer);
+
+        var link = document.createElement('a');
+        link.id = 'shortvideo-nav-entry';
+        // 从 SPA 的 ApiClient 获取 access token，带到短视频页面
+        var token = '';
+        try { token = (typeof ApiClient !== 'undefined' && ApiClient.accessToken) ? ApiClient.accessToken() : ''; } catch(e) {}
+        link.href = '/ShortVideo/Page' + (token ? '?api_key=' + encodeURIComponent(token) : '');
+        link.className = 'navMenuOption';
+        link.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 16px;color:inherit;text-decoration:none;cursor:pointer;';
+
+        var icon = document.createElement('span');
+        icon.textContent = '▶';
+        icon.style.cssText = 'font-size:18px;width:24px;text-align:center;';
+
+        var label = document.createElement('span');
+        label.textContent = '短视频';
+        label.style.fontSize = '14px';
+
+        link.appendChild(icon);
+        link.appendChild(label);
+
+        var firstOption = nav.querySelector('.navMenuOption');
+        if (firstOption && firstOption.parentNode) {
+            firstOption.parentNode.insertBefore(link, firstOption.nextSibling);
+        } else {
+            nav.appendChild(link);
+        }
+    }
+
+    var lastUrl = location.href;
+    setInterval(function() {
+        if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            attempts = 0;
+            clearInterval(timer);
+            timer = setInterval(tryInject, 400);
+        }
+    }, 1000);
+})();
+";
+}
