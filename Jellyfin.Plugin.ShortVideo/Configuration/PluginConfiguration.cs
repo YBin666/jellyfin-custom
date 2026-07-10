@@ -18,5 +18,5 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool Shuffle { get; set; } = true;
 
     /// <summary>每次 /Next 返回的预取数量，前端可预加载下几条。</summary>
-    public int PrefetchCount { get; set; } = 3;
+    public int PrefetchCount { get; set; } = 5;
 }

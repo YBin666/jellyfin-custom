@@ -191,65 +191,80 @@ public class ShortVideoController : ControllerBase
 (function() {
     'use strict';
 
-    var maxAttempts = 50;
-    var attempts = 0;
-    var timer = setInterval(tryInject, 400);
+    var injected = false;
 
-    function tryInject() {
-        attempts++;
-        if (attempts > maxAttempts) {
-            clearInterval(timer);
-            return;
-        }
+    function injectButton() {
+        if (injected) return;
+        if (document.getElementById('shortvideo-fab')) return;
+        if (!document.body) return;
 
-        var nav = document.querySelector('.mainDrawer .mainDrawer-scrollContainer')
-               || document.querySelector('.mainDrawer-scrollContainer')
-               || document.querySelector('.mainDrawer')
-               || document.querySelector('.navMenuContainer');
-        if (!nav) return;
-
-        if (document.getElementById('shortvideo-nav-entry')) {
-            clearInterval(timer);
-            return;
-        }
-
-        clearInterval(timer);
-
-        var link = document.createElement('a');
-        link.id = 'shortvideo-nav-entry';
-        // 从 SPA 的 ApiClient 获取 access token，带到短视频页面
         var token = '';
         try { token = (typeof ApiClient !== 'undefined' && ApiClient.accessToken) ? ApiClient.accessToken() : ''; } catch(e) {}
+
+        var link = document.createElement('a');
+        link.id = 'shortvideo-fab';
         link.href = '/ShortVideo/Page' + (token ? '?api_key=' + encodeURIComponent(token) : '');
-        link.className = 'navMenuOption';
-        link.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 16px;color:inherit;text-decoration:none;cursor:pointer;';
+        link.textContent = '短视频';
+        link.style.cssText = [
+            'position: fixed',
+            'right: 24px',
+            'bottom: 24px',
+            'padding: 12px 24px',
+            'border-radius: 999px',
+            'background: rgba(255,255,255,0.65)',
+            'backdrop-filter: blur(20px) saturate(180%)',
+            '-webkit-backdrop-filter: blur(20px) saturate(180%)',
+            'color: #000',
+            'font-size: 14px',
+            'font-weight: 500',
+            'font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, sans-serif',
+            'text-decoration: none',
+            'box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
+            'border: 1px solid rgba(255,255,255,0.8)',
+            'z-index: 9999',
+            'transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+            'cursor: pointer',
+            'user-select: none',
+            'display: inline-flex',
+            'align-items: center',
+            'gap: 8px'
+        ].join(';');
 
         var icon = document.createElement('span');
         icon.textContent = '▶';
-        icon.style.cssText = 'font-size:18px;width:24px;text-align:center;';
+        icon.style.cssText = 'font-size: 12px; opacity: 0.8;';
+        link.insertBefore(icon, link.firstChild);
 
-        var label = document.createElement('span');
-        label.textContent = '短视频';
-        label.style.fontSize = '14px';
+        link.addEventListener('mouseenter', function() {
+            link.style.transform = 'translateY(-2px)';
+            link.style.boxShadow = '0 8px 32px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.1)';
+            link.style.background = 'rgba(255,255,255,0.8)';
+        });
+        link.addEventListener('mouseleave', function() {
+            link.style.transform = 'translateY(0)';
+            link.style.boxShadow = '0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)';
+            link.style.background = 'rgba(255,255,255,0.65)';
+        });
 
-        link.appendChild(icon);
-        link.appendChild(label);
-
-        var firstOption = nav.querySelector('.navMenuOption');
-        if (firstOption && firstOption.parentNode) {
-            firstOption.parentNode.insertBefore(link, firstOption.nextSibling);
-        } else {
-            nav.appendChild(link);
-        }
+        document.body.appendChild(link);
+        injected = true;
+        console.log('[ShortVideo] 右下角悬浮按钮已注入');
     }
 
+    // 页面加载完成后注入
+    if (document.body) {
+        injectButton();
+    } else {
+        document.addEventListener('DOMContentLoaded', injectButton);
+    }
+
+    // SPA 路由切换时也确保按钮存在
     var lastUrl = location.href;
     setInterval(function() {
         if (location.href !== lastUrl) {
             lastUrl = location.href;
-            attempts = 0;
-            clearInterval(timer);
-            timer = setInterval(tryInject, 400);
+            // 延迟一点，等新页面渲染完
+            setTimeout(injectButton, 500);
         }
     }, 1000);
 })();

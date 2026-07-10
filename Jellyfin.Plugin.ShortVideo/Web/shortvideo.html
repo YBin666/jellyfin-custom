@@ -46,6 +46,7 @@
             background-color: #000;
             z-index: 1;
             transition: opacity 0.3s ease;
+            pointer-events: none;
         }
         .poster.hidden {
             opacity: 0;
@@ -63,6 +64,7 @@
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             display: none;
+            pointer-events: none;
         }
         .loader.show { display: block; }
         @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
@@ -182,6 +184,10 @@
         var API_KEY = resolveToken();
         console.log('[ShortVideo] API_KEY resolved:', API_KEY ? 'YES (' + API_KEY.length + ' chars)' : 'NO');
 
+        // 全局静音状态：默认静音（满足自动播放策略）
+        // 用户在任一视频上开启声音后，全局变为非静音，所有视频同步
+        var globalMuted = true;
+
         function apiUrl(path) {
             var url = BASE + path;
             if (API_KEY) {
@@ -189,6 +195,17 @@
                 url += sep + 'api_key=' + encodeURIComponent(API_KEY);
             }
             return url;
+        }
+
+        // 同步所有视频的静音状态
+        function syncMuteAll() {
+            var cards = feed.querySelectorAll('.card');
+            cards.forEach(function (card) {
+                var v = card._video || card.querySelector('video');
+                var btn = card.querySelector('.mute');
+                if (v) v.muted = globalMuted;
+                if (btn) btn.textContent = globalMuted ? '🔈' : '🔊';
+            });
         }
 
         // 拉取一批并渲染
@@ -267,11 +284,11 @@
             card.innerHTML =
                 '<div class="poster"></div>' +
                 '<div class="loader"></div>' +
-                '<video preload="metadata" playsinline webkit-playsinline></video>' +
+                '<video preload="metadata" playsinline webkit-playsinline loop muted></video>' +
                 '<div class="caption"><div class="title"></div><div class="dur"></div></div>' +
                 '<div class="actions">' +
                   '<div class="icon like" title="点赞">♡</div>' +
-                  '<div class="icon mute" title="静音">🔊</div>' +
+                  '<div class="icon mute" title="静音">🔈</div>' +
                 '</div>';
 
             card.querySelector('.title').textContent = name;
@@ -372,10 +389,16 @@
                 initialized = true;
                 showLoading();
                 if (useTranscode && hlsSrc) {
-                    // 编码不支持，直接用 HLS 转码，跳过直链尝试
-                    console.log('[ShortVideo] direct stream skipped (unsupported codec), using HLS transcode directly');
-                    triedTranscode = true;
-                    fallbackToHls();
+                    if (hls) {
+                        // 预加载已经创建了 hls 实例并缓冲了数据，直接播放
+                        console.log('[ShortVideo] prefetched buffer ready, playing directly');
+                        v.play().catch(function () {});
+                    } else {
+                        // 没有预加载过，从头开始转码
+                        console.log('[ShortVideo] direct stream skipped (unsupported codec), using HLS transcode directly');
+                        triedTranscode = true;
+                        fallbackToHls();
+                    }
                 } else {
                     // 先尝试直接播放原始文件（MP4/WebM 等浏览器支持的格式，零开销）
                     v.src = src;
@@ -401,6 +424,7 @@
                 v.load();
                 initialized = false;
                 triedTranscode = false;
+                card._prefetched = false;
                 showLoading();
             }
 
@@ -444,6 +468,13 @@
             });
 
             function fallbackToHls() {
+                // 如果 hls 已经存在（来自预加载），直接播放
+                if (hls) {
+                    console.log('[ShortVideo] hls already exists, playing directly');
+                    v.play().catch(function () {});
+                    return;
+                }
+
                 // 先清掉原来的
                 v.pause();
                 v.removeAttribute('src');
@@ -484,43 +515,78 @@
             card._src = src;
             card._prefetched = false;
 
-            // 预加载：触发转码启动，让 FFmpeg 先开始生成分片
-            // 对 HLS 转码：请求 m3u8 文件就能触发 FFmpeg 启动
-            // 对直链视频：设置 preload=auto 预加载
+            // 预加载：用 hls.js 实际加载 m3u8 并缓冲前几个分片
+            // 用户滑到这个视频时 buffer 已有数据，几乎无感切换
             card._prefetch = function () {
                 if (card._prefetched) return;
                 card._prefetched = true;
-                console.log('[ShortVideo] prefetching:', name);
+                console.log('[ShortVideo] prefetching (real buffer):', name);
+
                 if (useTranscode && hlsSrc) {
-                    // 请求 m3u8 播放列表，触发 FFmpeg 转码进程启动
-                    // 不用等响应，发出去就行
-                    fetch(hlsSrc, { method: 'GET' })
-                        .then(function (resp) {
-                            console.log('[ShortVideo] prefetch m3u8 fetched:', name, resp.status);
-                        })
-                        .catch(function () {
-                            // 失败也没关系，正式播放时会重新请求
+                    if (window.Hls && Hls.isSupported()) {
+                        // 创建 hls 实例，挂载到 video 元素
+                        // 不手动 stopLoad，靠 maxBufferLength 让 hls.js 自己管理缓冲
+                        // 缓冲满了自动停，播放时 buffer 少了自动续
+                        hls = new Hls({
+                            enableWorker: true,
+                            lowLatencyMode: false,
+                            backBufferLength: 30,
+                            maxBufferLength: 15,
+                            maxMaxBufferLength: 30
                         });
-                } else {
-                    // 直链视频：设置 preload=auto 预加载元数据和开头
-                    if (v.preload !== 'auto') {
+                        hls.loadSource(hlsSrc);
+                        hls.attachMedia(v);
+                        triedTranscode = true;
+
+                        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                            console.log('[ShortVideo] prefetch: manifest parsed, buffering for', name);
+                        });
+
+                        // 缓冲了 3 个分片后打印日志（不停止加载，让 hls.js 自己管）
+                        var fragCount = 0;
+                        hls.on(Hls.Events.FRAG_LOADED, function (event, data) {
+                            fragCount++;
+                            if (fragCount <= 3) {
+                                console.log('[ShortVideo] prefetch: frag ' + fragCount + ' loaded for', name);
+                            }
+                        });
+
+                        hls.on(Hls.Events.ERROR, function (event, data) {
+                            console.warn('[ShortVideo] prefetch HLS error:', data.type, data.details, 'for', name);
+                        });
+                    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+                        // Safari 原生 HLS：设置 src 并 load，浏览器会自动预缓冲
+                        v.src = hlsSrc;
                         v.preload = 'auto';
                         v.load();
+                        triedTranscode = true;
                     }
+                } else {
+                    // 直链视频：预加载元数据和开头数据
+                    v.preload = 'auto';
+                    v.load();
                 }
             };
 
-            // 交互：点击播放/暂停
-            v.addEventListener('click', function () {
-                if (v.paused) v.play(); else v.pause();
+            // 交互：点击播放/暂停（card 整体可点，避免被 poster/loader 挡住）
+            card.addEventListener('click', function (e) {
+                // 点到操作按钮时不触发
+                if (e.target.closest('.actions')) return;
+                if (v.paused) {
+                    v.play().catch(function () {});
+                } else {
+                    v.pause();
+                }
             });
-            // 静音切换
-            card.querySelector('.mute').addEventListener('click', function () {
-                v.muted = !v.muted;
-                this.textContent = v.muted ? '🔈' : '🔊';
+            // 静音切换（全局同步）
+            card.querySelector('.mute').addEventListener('click', function (e) {
+                e.stopPropagation();
+                globalMuted = !globalMuted;
+                syncMuteAll();
             });
             // 点赞（仅视觉）
-            card.querySelector('.like').addEventListener('click', function () {
+            card.querySelector('.like').addEventListener('click', function (e) {
+                e.stopPropagation();
                 this.textContent = this.textContent === '♥' ? '♡' : '♥';
             });
 
@@ -557,6 +623,8 @@
             cards.forEach(function (card, i) {
                 var v = card._video || card.querySelector('video');
                 var isVisible = i === visibleIndex;
+                // 确保静音状态和全局一致
+                if (v) v.muted = globalMuted;
                 if (isVisible) {
                     // 当前可见：初始化播放器并播放
                     if (card._initPlayer) card._initPlayer();
@@ -578,6 +646,12 @@
                     if (nextIdx < cards.length && cards[nextIdx]._prefetch) {
                         cards[nextIdx]._prefetch();
                     }
+                }
+                // 滑到倒数第 3 条时，提前加载下一批
+                var remaining = cards.length - visibleIndex - 1;
+                if (remaining <= 2 && !isLoading) {
+                    console.log('[ShortVideo] 到达倒数第3条，提前加载下一批');
+                    loadBatch();
                 }
             }
         }
