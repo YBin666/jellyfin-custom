@@ -58,7 +58,6 @@
         }
         video {
             max-width: 100%; max-height: 100%;
-            width: 100%; height: 100%;
             object-fit: contain;
             background: #000;
             pointer-events: none;
@@ -255,14 +254,14 @@
             height: 3px;
             background: rgba(255,255,255,0.4);
             border-radius: 2px;
-            width: 0%;
+            width: 0;
         }
         .progress-played {
             position: absolute;
             height: 3px;
             background: #fff;
             border-radius: 2px;
-            width: 0%;
+            width: 0;
         }
         .progress-handle {
             position: absolute;
@@ -768,8 +767,8 @@
                 var audioOk = isAudioCodecSupported(audioCodec);
                 if (videoOk === false || audioOk === false) return false;
                 var unsupportedContainers = ['avi', 'mkv', 'mov', 'wmv', 'flv', 'rmvb', 'rm', 'ts', 'm2ts'];
-                if (container && unsupportedContainers.indexOf(container) >= 0) return false;
-                return true;
+                return !(container && unsupportedContainers.indexOf(container) >= 0);
+
             }
 
             var useTranscode = !shouldDirectStream();

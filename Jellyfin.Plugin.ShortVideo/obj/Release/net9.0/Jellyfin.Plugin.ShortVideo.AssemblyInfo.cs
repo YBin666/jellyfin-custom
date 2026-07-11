@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Jellyfin.Plugin.ShortVideo")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0.0+a4c075f34e36565ad79213ae5bedf4a26e914c93")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0.0+b8aed279c71769378d2a49209a41042d109a2d06")]
 [assembly: System.Reflection.AssemblyProductAttribute("Jellyfin.Plugin.ShortVideo")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Jellyfin.Plugin.ShortVideo")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
