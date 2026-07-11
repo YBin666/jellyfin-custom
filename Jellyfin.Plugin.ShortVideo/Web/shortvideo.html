@@ -5,15 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>短视频</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <style>
-        /* 竖屏全屏容器，抖音式上下滑动 */
+        .lucide {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            vertical-align: middle;
+        }
+        .icon .lucide,
+        .btn-play .lucide,
+        .btn-volume .lucide,
+        .back .lucide {
+            width: 24px;
+            height: 24px;
+        }
+        .back .lucide {
+            width: 28px;
+            height: 28px;
+        }
+        .center-play-animation .lucide {
+            width: 48px;
+            height: 48px;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
             width: 100%; height: 100%;
             background: #000;
             overflow: hidden;
-            font-family: -apple-system, "Segoe UI", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             -webkit-user-select: none; user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         .feed {
             width: 100%; height: 100%;
@@ -29,6 +54,7 @@
             position: relative;
             background: #000;
             display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
         }
         video {
             max-width: 100%; max-height: 100%;
@@ -36,7 +62,6 @@
             object-fit: contain;
             background: #000;
         }
-        /* 封面图占位 */
         .poster {
             position: absolute;
             top: 0; left: 0;
@@ -52,7 +77,6 @@
             opacity: 0;
             pointer-events: none;
         }
-        /* 加载动画 */
         .loader {
             position: absolute;
             top: 50%; left: 50%;
@@ -68,76 +92,306 @@
         }
         .loader.show { display: block; }
         @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-        /* 右侧操作栏 */
+
+        .top-gradient {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 120px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+            z-index: 5;
+            pointer-events: none;
+        }
+        .bottom-gradient {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 200px;
+            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+            z-index: 5;
+            pointer-events: none;
+        }
+
         .actions {
-            position: absolute; right: 12px; bottom: 100px;
-            display: flex; flex-direction: column; gap: 18px;
+            position: absolute; right: 12px; bottom: 120px;
+            display: flex; flex-direction: column; gap: 20px;
             color: #fff; font-size: 12px; text-align: center;
+            z-index: 10;
+        }
+        .actions .action-item {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
         }
         .actions .icon {
-            width: 44px; height: 44px; border-radius: 50%;
-            background: rgba(255,255,255,.12);
+            width: 48px; height: 48px; border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             display: flex; align-items: center; justify-content: center;
-            font-size: 22px; cursor: pointer;
+            font-size: 24px; cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        /* 底部标题 */
+        .actions .icon:active {
+            transform: scale(0.9);
+            background: rgba(255,255,255,0.25);
+        }
+        .actions .icon.like.liked {
+            color: #ff4757;
+            background: rgba(255,71,87,0.2);
+        }
+        .actions .count {
+            font-size: 12px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            font-weight: 500;
+        }
+
         .caption {
-            position: absolute; left: 12px; right: 80px; bottom: 24px;
-            color: #fff; font-size: 14px; line-height: 1.4;
-            text-shadow: 0 1px 3px rgba(0,0,0,.8);
+            position: absolute; left: 16px; right: 80px; bottom: 80px;
+            color: #fff;
+            z-index: 10;
         }
-        .caption .title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
-        /* 顶部返回 */
+        .caption .title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 6px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+            line-height: 1.4;
+        }
+        .caption .meta {
+            font-size: 13px;
+            opacity: 0.85;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+        }
+
         .back {
-            position: absolute; top: 16px; left: 16px; z-index: 10;
-            color: #fff; font-size: 24px; text-decoration: none;
-            text-shadow: 0 1px 3px rgba(0,0,0,.8);
+            position: absolute; top: 16px; left: 16px; z-index: 20;
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+            font-size: 28px;
+            text-decoration: none;
+            line-height: 1;
+            padding-bottom: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
+
         .empty {
             color: #888; text-align: center; padding: 40px;
+        }
+
+        .center-play-animation {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+            font-size: 36px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 15;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .center-play-animation.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .heart-animation {
+            position: absolute;
+            pointer-events: none;
+            z-index: 20;
+            font-size: 80px;
+            animation: heartPop 0.8s ease forwards;
+        }
+        @keyframes heartPop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            40% { transform: translate(-50%, -50%) scale(0.95); }
+            60% { transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) translateY(-30px); }
+        }
+
+        .controls {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            padding: 12px 16px 16px;
+            z-index: 10;
+            background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+        }
+        .progress-container {
+            position: relative;
+            width: 100%;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+        .progress-bg {
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: rgba(255,255,255,0.25);
+            border-radius: 2px;
+        }
+        .progress-buffer {
+            position: absolute;
+            height: 3px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 2px;
+            width: 0%;
+        }
+        .progress-played {
+            position: absolute;
+            height: 3px;
+            background: #fff;
+            border-radius: 2px;
+            width: 0%;
+        }
+        .progress-handle {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            transform: translateX(-50%) scale(0);
+            transition: transform 0.15s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .progress-container:hover .progress-handle,
+        .progress-container.dragging .progress-handle {
+            transform: translateX(-50%) scale(1);
+        }
+        .progress-container:hover .progress-bg,
+        .progress-container.dragging .progress-bg,
+        .progress-container:hover .progress-buffer,
+        .progress-container.dragging .progress-buffer,
+        .progress-container:hover .progress-played,
+        .progress-container.dragging .progress-played {
+            height: 4px;
+        }
+        .controls-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+        }
+        .controls-bar button {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease;
+        }
+        .controls-bar button:active {
+            transform: scale(0.85);
+        }
+        .time-current, .time-total {
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            min-width: 40px;
+        }
+        .time-separator {
+            font-size: 13px;
+            opacity: 0.6;
+        }
+        .spacer { flex: 1; }
+        .playback-rate {
+            font-size: 13px;
+            font-weight: 500;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            cursor: pointer;
+            user-select: none;
+            min-width: 40px;
+            text-align: center;
+            transition: background 0.15s ease;
+        }
+        .playback-rate:active {
+            background: rgba(255,255,255,0.25);
+        }
+        .rate-menu {
+            position: absolute;
+            bottom: 50px;
+            right: 16px;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 80px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 30;
+        }
+        .rate-menu.show { display: flex; }
+        .rate-menu .rate-option {
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+            color: #fff;
+            transition: background 0.15s ease;
+        }
+        .rate-menu .rate-option:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .rate-menu .rate-option.active {
+            background: rgba(255,255,255,0.2);
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
-    <a class="back" href="/web/index.html">‹</a>
+    <a class="back" href="/web/index.html"><i data-lucide="chevron-left"></i></a>
     <div class="feed" id="feed"></div>
 
     <script>
-        // __APIKEY__ 和 __BASEURL__ 由服务端 Controller 替换
         var SERVER_API_KEY = "__APIKEY__";
         var BASE = "__BASEURL__";
         var feed = document.getElementById('feed');
         var firstBatchLoaded = false;
         var isLoading = false;
 
-        // 从多种来源提取 Jellyfin 认证 token
         function resolveToken() {
-            // 1. URL 参数 api_key（导航按钮带过来的，最可靠）
             var urlParam = new URLSearchParams(location.search).get('api_key');
             if (urlParam && urlParam.length >= 10) {
                 console.log('[ShortVideo] token from URL param');
                 return urlParam;
             }
-
-            // 2. 服务端注入的 token（Controller 从请求中提取的）
             if (SERVER_API_KEY && SERVER_API_KEY !== '__APIKEY__' && SERVER_API_KEY.length >= 10) {
                 console.log('[ShortVideo] token from server injection');
                 return SERVER_API_KEY;
             }
-
-            // 3. Cookie
             var m = document.cookie.match(/X-Emby-Token=([^;]+)/i);
             if (m && m[1].length >= 10) {
                 console.log('[ShortVideo] token from cookie');
                 return m[1];
             }
-
-            // 4. localStorage 精确查找（只在 JSON 对象中找 AccessToken 字段，不匹配原始字符串）
             try {
                 for (var i = 0; i < localStorage.length; i++) {
                     var k = localStorage.key(i);
                     var v = localStorage.getItem(k);
-                    if (!v || v.charAt(0) !== '{') continue; // 只解析 JSON 对象
+                    if (!v || v.charAt(0) !== '{') continue;
                     try {
                         var parsed = JSON.parse(v);
                         if (parsed && typeof parsed === 'object') {
@@ -152,12 +406,10 @@
             } catch (e3) {
                 console.warn('[ShortVideo] localStorage scan failed:', e3);
             }
-
             console.warn('[ShortVideo] No token found! localStorage keys:', Object.keys(localStorage));
             return '';
         }
 
-        // 递归在 JSON 对象里找 AccessToken 字段（精确匹配字段名，避免误匹配设备 ID）
         function findTokenInObject(obj, depth) {
             if (!obj || typeof obj !== 'object' || depth > 5) return null;
             depth = depth || 0;
@@ -168,7 +420,6 @@
                 if (!v) continue;
                 if (typeof v === 'string') {
                     var kl = k.toLowerCase();
-                    // 只匹配精确的字段名，且值长度合理（Jellyfin token 通常是 32 位 hex）
                     if (kl === 'accesstoken' && v.length >= 16 && v.length <= 64) {
                         return v;
                     }
@@ -184,9 +435,8 @@
         var API_KEY = resolveToken();
         console.log('[ShortVideo] API_KEY resolved:', API_KEY ? 'YES (' + API_KEY.length + ' chars)' : 'NO');
 
-        // 全局静音状态：默认静音（满足自动播放策略）
-        // 用户在任一视频上开启声音后，全局变为非静音，所有视频同步
         var globalMuted = true;
+        var globalVolume = 1;
 
         function apiUrl(path) {
             var url = BASE + path;
@@ -197,18 +447,29 @@
             return url;
         }
 
-        // 同步所有视频的静音状态
         function syncMuteAll() {
             var cards = feed.querySelectorAll('.card');
             cards.forEach(function (card) {
                 var v = card._video || card.querySelector('video');
-                var btn = card.querySelector('.mute');
-                if (v) v.muted = globalMuted;
-                if (btn) btn.textContent = globalMuted ? '🔈' : '🔊';
+                var muteBtn = card.querySelector('.mute-icon');
+                if (v) {
+                    v.muted = globalMuted;
+                    v.volume = globalVolume;
+                }
+                var icon = globalMuted ? 'volume-x' : 'volume-2';
+                if (muteBtn && muteBtn._setIcon) {
+                    muteBtn._setIcon(icon);
+                }
             });
         }
 
-        // 拉取一批并渲染
+        function formatTime(seconds) {
+            if (!isFinite(seconds) || seconds < 0) return '00:00';
+            var m = Math.floor(seconds / 60);
+            var s = Math.floor(seconds % 60);
+            return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
         function loadBatch() {
             if (isLoading) return;
             isLoading = true;
@@ -229,7 +490,6 @@
                     var isFirst = !firstBatchLoaded;
                     items.forEach(appendCard);
                     firstBatchLoaded = true;
-                    // 首批加载完成后，触发 playVisible 来初始化并播放第一条
                     if (isFirst) {
                         setTimeout(function () {
                             playVisible();
@@ -251,7 +511,6 @@
             card.className = 'card';
             card.dataset.id = item.id || item.Id || '';
 
-            // 兼容不同 JSON 序列化风格（camelCase / PascalCase）
             var streamUrl = item.streamUrl || item.StreamUrl || '';
             var name = item.name || item.Name || '';
             var duration = item.durationSeconds || item.DurationSeconds || 0;
@@ -264,16 +523,12 @@
                 return;
             }
 
-            // 拼接完整流地址
             var src = streamUrl.indexOf('http') === 0
                 ? streamUrl
                 : BASE + streamUrl;
 
-            // 构建 HLS 转码回退 URL：/Videos/{id}/main.m3u8
-            // 保留原有所有 query 参数（包括 api_key），再追加转码编码参数
             var transcodeParams = '&VideoCodec=h264&AudioCodec=aac&VideoBitrate=4000000&AudioBitrate=192000';
             var hlsSrc = src.replace(/\/stream\?(.*)/, '/main.m3u8?$1' + transcodeParams);
-            // 如果上面的正则没匹配上（URL 格式不同），手动构建
             if (hlsSrc === src) {
                 var id = card.dataset.id;
                 if (id) {
@@ -282,19 +537,51 @@
             }
 
             card.innerHTML =
+                '<div class="top-gradient"></div>' +
+                '<div class="bottom-gradient"></div>' +
                 '<div class="poster"></div>' +
                 '<div class="loader"></div>' +
                 '<video preload="metadata" playsinline webkit-playsinline loop muted></video>' +
-                '<div class="caption"><div class="title"></div><div class="dur"></div></div>' +
+                '<div class="center-play-animation"><i data-lucide="play"></i></div>' +
+                '<div class="caption">' +
+                  '<div class="title"></div>' +
+                  '<div class="meta"></div>' +
+                '</div>' +
                 '<div class="actions">' +
-                  '<div class="icon like" title="点赞">♡</div>' +
-                  '<div class="icon mute" title="静音">🔈</div>' +
+                  '<div class="action-item">' +
+                    '<div class="icon like" title="点赞"><i data-lucide="heart"></i></div>' +
+                    '<span class="count like-count">0</span>' +
+                  '</div>' +
+                  '<div class="action-item">' +
+                    '<div class="icon mute-icon" title="静音"><i data-lucide="volume-x"></i></div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="controls">' +
+                  '<div class="controls-bar">' +
+                    '<button class="btn-play"><i data-lucide="play"></i></button>' +
+                    '<span class="time-current">00:00</span>' +
+                    '<span class="time-separator">/</span>' +
+                    '<span class="time-total">00:00</span>' +
+                    '<div class="spacer"></div>' +
+                    '<div class="playback-rate">1x</div>' +
+                  '</div>' +
+                  '<div class="progress-container">' +
+                    '<div class="progress-bg"></div>' +
+                    '<div class="progress-buffer"></div>' +
+                    '<div class="progress-played"></div>' +
+                    '<div class="progress-handle"></div>' +
+                  '</div>' +
+                  '<div class="rate-menu">' +
+                    '<div class="rate-option" data-rate="0.5">0.5x</div>' +
+                    '<div class="rate-option active" data-rate="1">1x</div>' +
+                    '<div class="rate-option" data-rate="1.5">1.5x</div>' +
+                    '<div class="rate-option" data-rate="2">2x</div>' +
+                  '</div>' +
                 '</div>';
 
             card.querySelector('.title').textContent = name;
-            card.querySelector('.dur').textContent = Math.round(duration) + 's';
+            card.querySelector('.meta').textContent = Math.round(duration) + 's';
 
-            // 设置封面图
             var posterEl = card.querySelector('.poster');
             var loaderEl = card.querySelector('.loader');
             var posterUrl = BASE + '/Items/' + card.dataset.id + '/Images/Primary?fillHeight=1080&fillWidth=720&quality=80';
@@ -304,7 +591,33 @@
             var initialized = false;
             var triedTranscode = false;
             var hls = null;
-            var isLoading = false;
+            var srcLoaded = false;
+            var playRate = 1;
+            var isDraggingProgress = false;
+            var likeCount = Math.floor(Math.random() * 1000) + 100;
+            var isLiked = false;
+
+            var likeIcon = card.querySelector('.icon.like');
+            var likeCountEl = card.querySelector('.like-count');
+            var btnPlay = card.querySelector('.btn-play');
+            var muteIcon = card.querySelector('.mute-icon');
+            var timeCurrent = card.querySelector('.time-current');
+            var timeTotal = card.querySelector('.time-total');
+            var progressContainer = card.querySelector('.progress-container');
+            var progressPlayed = card.querySelector('.progress-played');
+            var progressBuffer = card.querySelector('.progress-buffer');
+            var progressHandle = card.querySelector('.progress-handle');
+            var rateBtn = card.querySelector('.playback-rate');
+            var rateMenu = card.querySelector('.rate-menu');
+            var centerAnim = card.querySelector('.center-play-animation');
+
+            likeCountEl.textContent = formatLikeCount(likeCount);
+
+            function formatLikeCount(n) {
+                if (n >= 10000) return (n / 10000).toFixed(1) + 'w';
+                if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+                return n.toString();
+            }
 
             function showLoading() {
                 loaderEl.classList.add('show');
@@ -315,31 +628,23 @@
                 posterEl.classList.add('hidden');
             }
 
-            // 检测浏览器是否支持该视频编码
             function isVideoCodecSupported(codec) {
-                if (!codec) return null; // 未知，让前端自己试
-                // 常见浏览器普遍支持的编码
+                if (!codec) return null;
                 var supported = ['h264', 'avc', 'avc1', 'mpeg4', 'mp4v'];
-                // vp8/vp9 在 Chrome/Firefox 支持，Safari 部分支持
                 if (codec === 'vp8' || codec === 'vp9') {
-                    try {
-                        return v.canPlayType('video/webm; codecs=' + codec) !== '';
-                    } catch (e) { return false; }
+                    try { return v.canPlayType('video/webm; codecs=' + codec) !== ''; }
+                    catch (e) { return false; }
                 }
-                // hevc/h265 只有部分浏览器（Safari、Edge 硬件加速）支持
                 if (codec === 'hevc' || codec === 'h265') {
                     try {
                         return v.canPlayType('video/mp4; codecs=hev1') !== ''
                             || v.canPlayType('video/mp4; codecs=hvc1') !== '';
                     } catch (e) { return false; }
                 }
-                // av1 较新，部分浏览器支持
                 if (codec === 'av1' || codec === 'av01') {
-                    try {
-                        return v.canPlayType('video/mp4; codecs=av01.0.05M.08') !== '';
-                    } catch (e) { return false; }
+                    try { return v.canPlayType('video/mp4; codecs=av01.0.05M.08') !== ''; }
+                    catch (e) { return false; }
                 }
-                // mpeg2、msmpeg4 等老格式浏览器基本不支持
                 if (codec.indexOf('mpeg2') >= 0 || codec.indexOf('msmpeg4') >= 0
                     || codec === 'wmv3' || codec === 'wmv2' || codec === 'vc1') {
                     return false;
@@ -347,31 +652,21 @@
                 return supported.indexOf(codec) >= 0;
             }
 
-            // 检测浏览器是否支持该音频编码
             function isAudioCodecSupported(codec) {
                 if (!codec) return null;
                 var supported = ['aac', 'mp3', 'mp2', 'opus', 'vorbis', 'flac', 'pcm'];
-                // ac3/eac3/dts 浏览器基本不支持
                 if (codec === 'ac3' || codec === 'eac3' || codec === 'dts' || codec === 'truehd') {
                     return false;
                 }
                 return supported.indexOf(codec) >= 0;
             }
 
-            // 判断是否应该直接走转码（编码不支持或容器不支持）
             function shouldDirectStream() {
                 var videoOk = isVideoCodecSupported(videoCodec);
                 var audioOk = isAudioCodecSupported(audioCodec);
-                // 只要有一个明确不支持，就走转码
-                if (videoOk === false || audioOk === false) {
-                    return false;
-                }
-                // 常见不支持直链播放的容器格式
+                if (videoOk === false || audioOk === false) return false;
                 var unsupportedContainers = ['avi', 'mkv', 'mov', 'wmv', 'flv', 'rmvb', 'rm', 'ts', 'm2ts'];
-                if (container && unsupportedContainers.indexOf(container) >= 0) {
-                    return false;
-                }
-                // 未知或都支持，尝试直链
+                if (container && unsupportedContainers.indexOf(container) >= 0) return false;
                 return true;
             }
 
@@ -390,29 +685,75 @@
                 showLoading();
                 if (useTranscode && hlsSrc) {
                     if (hls) {
-                        // 预加载已经创建了 hls 实例并缓冲了数据，直接播放
-                        console.log('[ShortVideo] prefetched buffer ready, playing directly');
+                        console.log('[ShortVideo] prefetched HLS buffer ready, playing directly');
                         v.play().catch(function () {});
                     } else {
-                        // 没有预加载过，从头开始转码
                         console.log('[ShortVideo] direct stream skipped (unsupported codec), using HLS transcode directly');
                         triedTranscode = true;
                         fallbackToHls();
                     }
                 } else {
-                    // 先尝试直接播放原始文件（MP4/WebM 等浏览器支持的格式，零开销）
-                    v.src = src;
-                    v.load();
+                    if (srcLoaded) {
+                        console.log('[ShortVideo] prefetched direct stream ready, playing directly');
+                        v.play().catch(function () {});
+                    } else {
+                        v.src = src;
+                        v.load();
+                    }
                 }
             }
 
-            // 视频开始播放时隐藏封面和加载动画
             v.addEventListener('playing', function () {
                 hideLoading();
+                setIcon(btnPlay, 'pause');
+            });
+            v.addEventListener('pause', function () {
+                setIcon(btnPlay, 'play');
             });
             v.addEventListener('waiting', function () {
                 showLoading();
             });
+
+            function setIcon(el, name) {
+                if (!el) return;
+                if (window.lucide && lucide.icons && lucide.icons[name]) {
+                    el.innerHTML = lucide.icons[name].toSvg({
+                        'stroke-width': 2,
+                        'stroke-linecap': 'round',
+                        'stroke-linejoin': 'round',
+                        fill: 'none'
+                    });
+                } else {
+                    el.innerHTML = '<i data-lucide="' + name + '"></i>';
+                    if (window.lucide && lucide.createIcons) {
+                        lucide.createIcons();
+                    }
+                }
+            }
+
+            v.addEventListener('timeupdate', function () {
+                if (isDraggingProgress) return;
+                var pct = v.duration ? (v.currentTime / v.duration) * 100 : 0;
+                progressPlayed.style.width = pct + '%';
+                progressHandle.style.left = pct + '%';
+                timeCurrent.textContent = formatTime(v.currentTime);
+            });
+
+            v.addEventListener('loadedmetadata', function () {
+                timeTotal.textContent = formatTime(v.duration);
+            });
+
+            v.addEventListener('progress', function () {
+                if (v.buffered && v.buffered.length > 0 && v.duration) {
+                    var bufferedEnd = v.buffered.end(v.buffered.length - 1);
+                    var pct = (bufferedEnd / v.duration) * 100;
+                    progressBuffer.style.width = pct + '%';
+                }
+            });
+
+            if (window.Hls) {
+                v.addEventListener('hlsBufferUpdated', function () {});
+            }
 
             function destroyPlayer() {
                 if (hls) {
@@ -424,11 +765,16 @@
                 v.load();
                 initialized = false;
                 triedTranscode = false;
+                srcLoaded = false;
                 card._prefetched = false;
+                progressPlayed.style.width = '0%';
+                progressBuffer.style.width = '0%';
+                progressHandle.style.left = '0%';
+                timeCurrent.textContent = '00:00';
+                timeTotal.textContent = '00:00';
                 showLoading();
             }
 
-            // 视频加载失败时自动回退到 HLS 转码流
             v.addEventListener('error', function () {
                 if (!triedTranscode && hlsSrc && hlsSrc !== src) {
                     triedTranscode = true;
@@ -437,22 +783,18 @@
                 }
             });
 
-            // 检测"有声音无画面"：元数据加载后检查 videoWidth
-            // 如果视频轨道无法被浏览器解码，videoWidth/videoHeight 会是 0
             v.addEventListener('loadedmetadata', function () {
                 if (triedTranscode) return;
                 var w = v.videoWidth || 0;
                 var h = v.videoHeight || 0;
                 console.log('[ShortVideo] loadedmetadata: videoWidth=' + w + ', videoHeight=' + h);
                 if (w === 0 || h === 0) {
-                    // 视频轨道无法解码（只有音频），触发回退
                     triedTranscode = true;
                     console.warn('[ShortVideo] no video track detected (only audio), falling back to HLS transcode');
                     fallbackToHls();
                 }
             });
 
-            // 兜底：播放 2 秒后再检查一次画面（某些格式可能延迟解析视频轨）
             v.addEventListener('play', function () {
                 if (triedTranscode) return;
                 setTimeout(function () {
@@ -468,18 +810,14 @@
             });
 
             function fallbackToHls() {
-                // 如果 hls 已经存在（来自预加载），直接播放
                 if (hls) {
                     console.log('[ShortVideo] hls already exists, playing directly');
                     v.play().catch(function () {});
                     return;
                 }
-
-                // 先清掉原来的
                 v.pause();
                 v.removeAttribute('src');
 
-                // Safari 原生支持 HLS，直接用 src
                 if (v.canPlayType('application/vnd.apple.mpegurl')) {
                     v.src = hlsSrc;
                     v.load();
@@ -487,7 +825,6 @@
                     return;
                 }
 
-                // 其他浏览器用 hls.js
                 if (window.Hls && Hls.isSupported()) {
                     hls = new Hls({
                         enableWorker: true,
@@ -502,10 +839,202 @@
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         console.error('[ShortVideo] HLS error:', data.type, data.details);
                     });
+                    hls.on(Hls.Events.FRAG_BUFFERED, function () {
+                        if (v.buffered && v.buffered.length > 0 && v.duration) {
+                            var bufferedEnd = v.buffered.end(v.buffered.length - 1);
+                            var pct = (bufferedEnd / v.duration) * 100;
+                            progressBuffer.style.width = pct + '%';
+                        }
+                    });
                 } else {
                     console.warn('[ShortVideo] HLS not supported and no hls.js available');
                 }
             }
+
+            function showCenterPlayIcon(playState) {
+                setIcon(centerAnim, playState ? 'play' : 'pause');
+                centerAnim.classList.add('show');
+                setTimeout(function () {
+                    centerAnim.classList.remove('show');
+                }, 300);
+            }
+
+            function togglePlay() {
+                if (v.paused) {
+                    v.play().catch(function () {});
+                    showCenterPlayIcon(true);
+                } else {
+                    v.pause();
+                    showCenterPlayIcon(false);
+                }
+            }
+
+            var lastClickTime = 0;
+            card.addEventListener('click', function (e) {
+                if (e.target.closest('.actions')) return;
+                if (e.target.closest('.controls')) return;
+
+                var now = Date.now();
+                if (now - lastClickTime < 300) {
+                    e.preventDefault();
+                    handleDoubleTap(e);
+                    lastClickTime = 0;
+                    return;
+                }
+                lastClickTime = now;
+
+                setTimeout(function () {
+                    if (Date.now() - lastClickTime >= 290 && lastClickTime !== 0) {
+                        togglePlay();
+                        lastClickTime = 0;
+                    }
+                }, 300);
+            });
+
+            function handleDoubleTap(e) {
+                toggleLike();
+                var heart = document.createElement('div');
+                heart.className = 'heart-animation';
+                heart.innerHTML = '<i data-lucide="heart" style="fill:#ff4757;color:#ff4757;width:80px;height:80px;"></i>';
+                var rect = card.getBoundingClientRect();
+                heart.style.left = (e.clientX - rect.left) + 'px';
+                heart.style.top = (e.clientY - rect.top) + 'px';
+                heart.style.transform = 'translate(-50%, -50%)';
+                card.appendChild(heart);
+                if (window.lucide && lucide.createIcons) {
+                    lucide.createIcons({ root: heart });
+                }
+                setTimeout(function () { heart.remove(); }, 800);
+            }
+
+            function toggleLike() {
+                isLiked = !isLiked;
+                if (isLiked) {
+                    likeCount++;
+                    likeIcon.classList.add('liked');
+                    var heartSvg = likeIcon.querySelector('.lucide-heart');
+                    if (heartSvg) heartSvg.style.fill = 'currentColor';
+                } else {
+                    likeCount--;
+                    likeIcon.classList.remove('liked');
+                    var heartSvg = likeIcon.querySelector('.lucide-heart');
+                    if (heartSvg) heartSvg.style.fill = 'none';
+                }
+                likeCountEl.textContent = formatLikeCount(likeCount);
+            }
+
+            likeIcon.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleLike();
+            });
+
+            btnPlay.addEventListener('click', function (e) {
+                e.stopPropagation();
+                togglePlay();
+            });
+
+            function toggleMute() {
+                globalMuted = !globalMuted;
+                syncMuteAll();
+            }
+
+            muteIcon.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleMute();
+            });
+
+            function updateVolumeUI() {
+                var icon = globalMuted ? 'volume-x' : 'volume-2';
+                setIcon(muteIcon, icon);
+            }
+
+            progressContainer.addEventListener('mousedown', function (e) {
+                e.stopPropagation();
+                startDrag(e);
+            });
+
+            progressContainer.addEventListener('touchstart', function (e) {
+                e.stopPropagation();
+                startDrag(e.touches[0]);
+            });
+
+            function startDrag(e) {
+                isDraggingProgress = true;
+                progressContainer.classList.add('dragging');
+                updateProgressFromEvent(e);
+                document.addEventListener('mousemove', onDragMove);
+                document.addEventListener('mouseup', onDragEnd);
+                document.addEventListener('touchmove', onTouchMove);
+                document.addEventListener('touchend', onTouchEnd);
+            }
+
+            function onDragMove(e) {
+                if (!isDraggingProgress) return;
+                updateProgressFromEvent(e);
+            }
+
+            function onTouchMove(e) {
+                if (!isDraggingProgress) return;
+                updateProgressFromEvent(e.touches[0]);
+            }
+
+            function onDragEnd(e) {
+                if (!isDraggingProgress) return;
+                updateProgressFromEvent(e);
+                finishDrag();
+            }
+
+            function onTouchEnd(e) {
+                if (!isDraggingProgress) return;
+                finishDrag();
+            }
+
+            function finishDrag() {
+                isDraggingProgress = false;
+                progressContainer.classList.remove('dragging');
+                document.removeEventListener('mousemove', onDragMove);
+                document.removeEventListener('mouseup', onDragEnd);
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+            }
+
+            function updateProgressFromEvent(e) {
+                var rect = progressContainer.getBoundingClientRect();
+                var pct = (e.clientX - rect.left) / rect.width;
+                pct = Math.max(0, Math.min(1, pct));
+                progressPlayed.style.width = (pct * 100) + '%';
+                progressHandle.style.left = (pct * 100) + '%';
+                if (v.duration) {
+                    var targetTime = pct * v.duration;
+                    v.currentTime = targetTime;
+                    timeCurrent.textContent = formatTime(targetTime);
+                }
+            }
+
+            rateBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                rateMenu.classList.toggle('show');
+            });
+
+            var rateOptions = rateMenu.querySelectorAll('.rate-option');
+            rateOptions.forEach(function (opt) {
+                opt.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var rate = parseFloat(opt.dataset.rate);
+                    playRate = rate;
+                    v.playbackRate = rate;
+                    rateBtn.textContent = rate + 'x';
+                    rateOptions.forEach(function (o) { o.classList.remove('active'); });
+                    opt.classList.add('active');
+                    rateMenu.classList.remove('show');
+                });
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest('.rate-menu') && !e.target.closest('.playback-rate')) {
+                    rateMenu.classList.remove('show');
+                }
+            });
 
             card._initPlayer = initPlayer;
             card._destroyPlayer = destroyPlayer;
@@ -515,8 +1044,6 @@
             card._src = src;
             card._prefetched = false;
 
-            // 预加载：用 hls.js 实际加载 m3u8 并缓冲前几个分片
-            // 用户滑到这个视频时 buffer 已有数据，几乎无感切换
             card._prefetch = function () {
                 if (card._prefetched) return;
                 card._prefetched = true;
@@ -524,9 +1051,6 @@
 
                 if (useTranscode && hlsSrc) {
                     if (window.Hls && Hls.isSupported()) {
-                        // 创建 hls 实例，挂载到 video 元素
-                        // 不手动 stopLoad，靠 maxBufferLength 让 hls.js 自己管理缓冲
-                        // 缓冲满了自动停，播放时 buffer 少了自动续
                         hls = new Hls({
                             enableWorker: true,
                             lowLatencyMode: false,
@@ -542,7 +1066,6 @@
                             console.log('[ShortVideo] prefetch: manifest parsed, buffering for', name);
                         });
 
-                        // 缓冲了 3 个分片后打印日志（不停止加载，让 hls.js 自己管）
                         var fragCount = 0;
                         hls.on(Hls.Events.FRAG_LOADED, function (event, data) {
                             fragCount++;
@@ -555,51 +1078,40 @@
                             console.warn('[ShortVideo] prefetch HLS error:', data.type, data.details, 'for', name);
                         });
                     } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-                        // Safari 原生 HLS：设置 src 并 load，浏览器会自动预缓冲
                         v.src = hlsSrc;
                         v.preload = 'auto';
                         v.load();
                         triedTranscode = true;
                     }
                 } else {
-                    // 直链视频：预加载元数据和开头数据
+                    v.src = src;
                     v.preload = 'auto';
                     v.load();
+                    srcLoaded = true;
                 }
             };
 
-            // 交互：点击播放/暂停（card 整体可点，避免被 poster/loader 挡住）
-            card.addEventListener('click', function (e) {
-                // 点到操作按钮时不触发
-                if (e.target.closest('.actions')) return;
-                if (v.paused) {
-                    v.play().catch(function () {});
-                } else {
-                    v.pause();
-                }
-            });
-            // 静音切换（全局同步）
-            card.querySelector('.mute').addEventListener('click', function (e) {
-                e.stopPropagation();
-                globalMuted = !globalMuted;
-                syncMuteAll();
-            });
-            // 点赞（仅视觉）
-            card.querySelector('.like').addEventListener('click', function (e) {
-                e.stopPropagation();
-                this.textContent = this.textContent === '♥' ? '♡' : '♥';
-            });
+            v.muted = globalMuted;
+            v.volume = globalVolume;
+            updateVolumeUI();
+
+            btnPlay._setIcon = function(name) { setIcon(btnPlay, name); };
+            muteIcon._setIcon = function(name) { setIcon(muteIcon, name); };
 
             feed.appendChild(card);
+
+            if (window.lucide && lucide.createIcons) {
+                lucide.createIcons({ root: card });
+                var heartSvg = likeIcon.querySelector('.lucide-heart');
+                if (heartSvg && isLiked) heartSvg.style.fill = 'currentColor';
+            }
         }
 
-        // 监听滚动，自动播放当前可见项 + 预加载
         var snapTimer;
         feed.addEventListener('scroll', function () {
             clearTimeout(snapTimer);
             snapTimer = setTimeout(function () {
                 playVisible();
-                // 接近底部时再拉一批
                 if (feed.scrollTop + feed.clientHeight > feed.scrollHeight - feed.clientHeight) {
                     loadBatch();
                 }
@@ -623,23 +1135,21 @@
             cards.forEach(function (card, i) {
                 var v = card._video || card.querySelector('video');
                 var isVisible = i === visibleIndex;
-                // 确保静音状态和全局一致
-                if (v) v.muted = globalMuted;
+                if (v) {
+                    v.muted = globalMuted;
+                    v.volume = globalVolume;
+                }
                 if (isVisible) {
-                    // 当前可见：初始化播放器并播放
                     if (card._initPlayer) card._initPlayer();
-                    v.play().catch(function () { /* 自动播放策略可能拦截 */ });
+                    v.play().catch(function () {});
                 } else {
-                    // 不可见：暂停
                     v.pause();
-                    // 离得远的销毁播放器释放资源（前后各保留 2 个）
                     if (Math.abs(i - visibleIndex) > 2 && card._destroyPlayer) {
                         card._destroyPlayer();
                     }
                 }
             });
 
-            // 预加载：当前视频后面的 2 个视频提前触发转码
             if (visibleIndex >= 0) {
                 for (var j = 1; j <= 2; j++) {
                     var nextIdx = visibleIndex + j;
@@ -647,7 +1157,6 @@
                         cards[nextIdx]._prefetch();
                     }
                 }
-                // 滑到倒数第 3 条时，提前加载下一批
                 var remaining = cards.length - visibleIndex - 1;
                 if (remaining <= 2 && !isLoading) {
                     console.log('[ShortVideo] 到达倒数第3条，提前加载下一批');
@@ -656,7 +1165,6 @@
             }
         }
 
-        // 键盘上下切换（桌面测试用）
         document.addEventListener('keydown', function (e) {
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -665,8 +1173,11 @@
             }
         });
 
-        // 启动
         loadBatch();
+
+        if (window.lucide && lucide.createIcons) {
+            lucide.createIcons();
+        }
     </script>
 </body>
 </html>
