@@ -191,10 +191,20 @@ public class ShortVideoController : ControllerBase
 (function() {
     'use strict';
 
-    var injected = false;
+    var link = null;
+
+    // 匹配 #/home 或 #/list，后跟 /、? 或字符串结束，避免 #/homepage 误匹配
+    function isAllowedRoute() {
+        return /^#\/(home|list)([\/?]|$)/.test(location.hash || '');
+    }
+
+    function updateVisibility() {
+        if (!link) return;
+        link.style.display = isAllowedRoute() ? 'inline-flex' : 'none';
+    }
 
     function injectButton() {
-        if (injected) return;
+        if (link) return;
         if (document.getElementById('shortvideo-fab')) return;
         if (!document.body) return;
 
@@ -213,7 +223,7 @@ public class ShortVideoController : ControllerBase
             }
         } catch(e) {}
 
-        var link = document.createElement('a');
+        link = document.createElement('a');
         link.id = 'shortvideo-fab';
         link.href = '/ShortVideo/Page' + (token ? '?api_key=' + encodeURIComponent(token) : '');
         link.textContent = '短视频';
@@ -259,26 +269,34 @@ public class ShortVideoController : ControllerBase
         });
 
         document.body.appendChild(link);
-        injected = true;
-        console.log('[ShortVideo] 右下角悬浮按钮已注入');
+        updateVisibility();
+        console.log('[ShortVideo] 右下角悬浮按钮已注入, 当前路由:', location.hash);
     }
 
-    // 页面加载完成后注入
+    // 初始注入
     if (document.body) {
         injectButton();
     } else {
         document.addEventListener('DOMContentLoaded', injectButton);
     }
 
-    // SPA 路由切换时也确保按钮存在
-    var lastUrl = location.href;
-    setInterval(function() {
-        if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            // 延迟一点，等新页面渲染完
-            setTimeout(injectButton, 500);
+    // 主要监听：hashchange 事件，路由切换时立即更新可见性（无延迟）
+    window.addEventListener('hashchange', function() {
+        if (!link) {
+            injectButton();
+        } else {
+            updateVisibility();
         }
-    }, 1000);
+    });
+
+    // 兜底：低频轮询（2秒），防止 SPA 初始化阶段 hash 多次变化等边缘情况
+    setInterval(function() {
+        if (!link) {
+            injectButton();
+        } else {
+            updateVisibility();
+        }
+    }, 2000);
 })();
 ";
 }

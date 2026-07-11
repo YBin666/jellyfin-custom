@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj": {}
+    "c:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj": {}
   },
   "projects": {
-    "C:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj": {
+    "c:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj",
+        "projectUniqueName": "c:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj",
         "projectName": "Jellyfin.Plugin.ShortVideo",
-        "projectPath": "C:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj",
+        "projectPath": "c:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\Jellyfin.Plugin.ShortVideo.csproj",
         "packagesPath": "C:\\Users\\Yangb\\.nuget\\packages\\",
-        "outputPath": "C:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\obj\\",
+        "outputPath": "c:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\NuGet.Config",
+          "c:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\NuGet.Config",
           "C:\\Users\\Yangb\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],

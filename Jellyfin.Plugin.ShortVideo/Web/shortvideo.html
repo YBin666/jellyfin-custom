@@ -61,6 +61,15 @@
             width: 100%; height: 100%;
             object-fit: contain;
             background: #000;
+            pointer-events: none;
+        }
+        .video-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 3;
+            pointer-events: auto;
+            -webkit-tap-highlight-color: transparent;
         }
         .poster {
             position: absolute;
@@ -173,9 +182,9 @@
             font-size: 28px;
             text-decoration: none;
             line-height: 1;
-            padding-bottom: 4px;
             border: 1px solid rgba(255,255,255,0.1);
         }
+        .back svg { display: block; }
 
         .empty {
             color: #888; text-align: center; padding: 40px;
@@ -481,6 +490,28 @@
         var globalMuted = true;
         var globalVolume = 1;
 
+        var transcodePrefetchQueue = [];
+        var transcodePrefetchActive = 0;
+        var MAX_CONCURRENT_TRANSCODES = 2;
+
+        function scheduleTranscodePrefetch(fn) {
+            if (transcodePrefetchActive < MAX_CONCURRENT_TRANSCODES) {
+                transcodePrefetchActive++;
+                fn();
+            } else {
+                transcodePrefetchQueue.push(fn);
+            }
+        }
+
+        function transcodePrefetchDone() {
+            if (transcodePrefetchActive > 0) transcodePrefetchActive--;
+            if (transcodePrefetchQueue.length > 0 && transcodePrefetchActive < MAX_CONCURRENT_TRANSCODES) {
+                var next = transcodePrefetchQueue.shift();
+                transcodePrefetchActive++;
+                next();
+            }
+        }
+
         function apiUrl(path) {
             var url = BASE + path;
             if (API_KEY) {
@@ -585,22 +616,34 @@
                 : BASE + streamUrl;
             src = ensureApiKey(src, API_KEY);
 
-            var transcodeParams = '&VideoCodec=h264&AudioCodec=aac&VideoBitrate=4000000&AudioBitrate=192000';
-            var hlsSrc = src.replace(/\/stream\?(.*)/, '/main.m3u8?$1' + transcodeParams);
-            if (hlsSrc === src) {
-                var id = card.dataset.id;
-                if (id) {
-                    hlsSrc = BASE + '/Videos/' + id + '/main.m3u8?api_key=' + encodeURIComponent(API_KEY) + transcodeParams;
+            var transcodeParams = 'VideoCodec=h264&AudioCodec=aac&VideoBitrate=4000000&AudioBitrate=192000';
+            var hlsSrc = '';
+            var streamMatch = src.match(/\/Videos\/([^/]+)\/stream\?(.*)/);
+            if (streamMatch) {
+                var videoIdMatch = streamMatch[1];
+                var qs = streamMatch[2]
+                    .replace(/(^|&)static=true&?/i, '$1')
+                    .replace(/(^|&)api_key=[^&]*/i, '$1')
+                    .replace(/^&+/, '').replace(/&+$/, '');
+                hlsSrc = BASE + '/Videos/' + videoIdMatch + '/main.m3u8?'
+                    + (qs ? qs + '&' : '')
+                    + 'api_key=' + encodeURIComponent(API_KEY) + '&'
+                    + transcodeParams;
+            } else {
+                var idForHls = card.dataset.id;
+                if (idForHls) {
+                    hlsSrc = BASE + '/Videos/' + idForHls + '/main.m3u8?api_key='
+                        + encodeURIComponent(API_KEY) + '&' + transcodeParams;
                 }
             }
-            hlsSrc = ensureApiKey(hlsSrc, API_KEY);
 
             card.innerHTML =
                 '<div class="top-gradient"></div>' +
                 '<div class="bottom-gradient"></div>' +
                 '<div class="poster"></div>' +
                 '<div class="loader"></div>' +
-                '<video preload="metadata" playsinline webkit-playsinline loop muted></video>' +
+                '<video preload="metadata" playsinline webkit-playsinline x-webkit-airplay="deny" disablepictureinpicture controlsList="nodownload noplaybackrate noremoteplayback" loop muted></video>' +
+                '<div class="video-overlay"></div>' +
                 '<div class="center-play-animation"><i data-lucide="play"></i></div>' +
                 '<div class="caption">' +
                   '<div class="title"></div>' +
@@ -825,7 +868,11 @@
 
             function destroyPlayer() {
                 if (hls) {
-                    try { hls.destroy(); } catch (e) {}
+                    try {
+                        hls.stopLoad();
+                        hls.detachMedia();
+                        hls.destroy();
+                    } catch (e) {}
                     hls = null;
                 }
                 v.pause();
@@ -835,6 +882,10 @@
                 triedTranscode = false;
                 srcLoaded = false;
                 card._prefetched = false;
+                if (card._prefetchSlotTaken) {
+                    card._prefetchSlotTaken = false;
+                    transcodePrefetchDone();
+                }
                 progressPlayed.style.width = '0%';
                 progressBuffer.style.width = '0%';
                 progressHandle.style.left = '0%';
@@ -882,6 +933,8 @@
                 }
 
                 if (window.Hls && Hls.isSupported()) {
+                    var fbRetryCount = 0;
+                    var fbMaxRetries = 2;
                     hls = new Hls({
                         enableWorker: true,
                         lowLatencyMode: false,
@@ -893,10 +946,21 @@
                     hls.loadSource(hlsSrc);
                     hls.attachMedia(v);
                     hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                        console.log('[ShortVideo] fallback HLS manifest parsed, playing');
                         v.play().catch(function () {});
                     });
                     hls.on(Hls.Events.ERROR, function (event, data) {
-                        console.error('[ShortVideo] HLS error:', data.type, data.details);
+                        if (data.fatal) {
+                            if (data.type === Hls.ErrorTypes.NETWORK_ERROR && fbRetryCount < fbMaxRetries) {
+                                fbRetryCount++;
+                                console.warn('[ShortVideo] fallback HLS network error, retry ' + fbRetryCount + '/' + fbMaxRetries);
+                                setTimeout(function () { hls.startLoad(); }, 1000 * fbRetryCount);
+                            } else {
+                                console.error('[ShortVideo] fallback HLS fatal error:', data.type, data.details);
+                            }
+                        } else {
+                            console.warn('[ShortVideo] fallback HLS error:', data.type, data.details);
+                        }
                     });
                     hls.on(Hls.Events.FRAG_BUFFERED, function () {
                         if (v.buffered && v.buffered.length > 0 && v.duration) {
@@ -1102,6 +1166,7 @@
             card._hlsSrc = hlsSrc;
             card._src = src;
             card._prefetched = false;
+            card._prefetchSlotTaken = false;
 
             card._prefetch = function () {
                 if (card._prefetched) return;
@@ -1109,48 +1174,74 @@
                 console.log('[ShortVideo] prefetching (real buffer):', name);
 
                 if (useTranscode && hlsSrc) {
-                    if (window.Hls && Hls.isSupported()) {
-                        hls = new Hls({
-                            enableWorker: true,
-                            lowLatencyMode: false,
-                            backBufferLength: 30,
-                            maxBufferLength: 15,
-                            maxMaxBufferLength: 30,
-                            startFragPrefetch: true
-                        });
-                        hls.loadSource(hlsSrc);
-                        hls.attachMedia(v);
-                        triedTranscode = true;
+                    var doPrefetch = function () {
+                        if (!card._prefetched) {
+                            console.log('[ShortVideo] prefetch cancelled (card destroyed) for', name);
+                            transcodePrefetchDone();
+                            return;
+                        }
+                        card._prefetchSlotTaken = true;
+                        if (window.Hls && Hls.isSupported()) {
+                            var retryCount = 0;
+                            var maxRetries = 2;
+                            hls = new Hls({
+                                enableWorker: true,
+                                lowLatencyMode: false,
+                                backBufferLength: 30,
+                                maxBufferLength: 15,
+                                maxMaxBufferLength: 30,
+                                startFragPrefetch: true
+                            });
+                            hls.loadSource(hlsSrc);
+                            hls.attachMedia(v);
+                            triedTranscode = true;
 
-                        hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                            console.log('[ShortVideo] prefetch: manifest parsed, buffering for', name);
-                        });
+                            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                                console.log('[ShortVideo] prefetch: manifest parsed, buffering for', name);
+                                card._prefetchSlotTaken = false;
+                                transcodePrefetchDone();
+                            });
 
-                        var fragCount = 0;
-                        hls.on(Hls.Events.FRAG_LOADED, function (event, data) {
-                            fragCount++;
-                            if (fragCount <= 3) {
-                                console.log('[ShortVideo] prefetch: frag ' + fragCount + ' loaded for', name);
-                            }
-                        });
+                            var fragCount = 0;
+                            hls.on(Hls.Events.FRAG_LOADED, function (event, data) {
+                                fragCount++;
+                                if (fragCount <= 3) {
+                                    console.log('[ShortVideo] prefetch: frag ' + fragCount + ' loaded for', name);
+                                }
+                            });
 
-                        hls.on(Hls.Events.ERROR, function (event, data) {
-                            if (data.fatal) {
-                                console.warn('[ShortVideo] prefetch fatal HLS error, destroying:', data.type, data.details, 'for', name);
-                                try { hls.destroy(); } catch (e) {}
-                                hls = null;
-                                card._prefetched = false;
-                                triedTranscode = false;
-                            } else {
-                                console.warn('[ShortVideo] prefetch HLS error:', data.type, data.details, 'for', name);
-                            }
-                        });
-                    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-                        v.src = hlsSrc;
-                        v.preload = 'auto';
-                        v.load();
-                        triedTranscode = true;
-                    }
+                            hls.on(Hls.Events.ERROR, function (event, data) {
+                                if (data.fatal) {
+                                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR && retryCount < maxRetries) {
+                                        retryCount++;
+                                        console.warn('[ShortVideo] prefetch network error, retry ' + retryCount + '/' + maxRetries + ' for', name);
+                                        setTimeout(function () { hls.startLoad(); }, 1000 * retryCount);
+                                    } else {
+                                        console.warn('[ShortVideo] prefetch fatal HLS error, destroying:', data.type, data.details, 'for', name);
+                                        try { hls.destroy(); } catch (e) {}
+                                        hls = null;
+                                        card._prefetched = false;
+                                        card._prefetchSlotTaken = false;
+                                        triedTranscode = false;
+                                        transcodePrefetchDone();
+                                    }
+                                } else {
+                                    console.warn('[ShortVideo] prefetch HLS error:', data.type, data.details, 'for', name);
+                                }
+                            });
+                        } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+                            v.src = hlsSrc;
+                            v.preload = 'auto';
+                            v.load();
+                            triedTranscode = true;
+                            card._prefetchSlotTaken = false;
+                            transcodePrefetchDone();
+                        } else {
+                            card._prefetchSlotTaken = false;
+                            transcodePrefetchDone();
+                        }
+                    };
+                    scheduleTranscodePrefetch(doPrefetch);
                 } else {
                     v.src = src;
                     v.preload = 'auto';
