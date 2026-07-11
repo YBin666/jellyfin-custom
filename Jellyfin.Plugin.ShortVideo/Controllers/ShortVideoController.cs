@@ -201,22 +201,33 @@ public class ShortVideoController : ControllerBase
     var isNavigatingBack = false; // 防止 history.back() 触发重复处理
 
     // ---- Token 获取 ----
+    // token 存储在 localStorage 的 jellyfin_credentials → Servers[0].AccessToken
     function getToken() {
-        var token = '';
         try {
-            if (typeof ApiClient !== 'undefined') {
-                if (typeof ApiClient.accessToken === 'function') {
-                    token = ApiClient.accessToken() || '';
-                } else if (ApiClient.accessToken) {
-                    token = ApiClient.accessToken;
+            var credStr = localStorage.getItem('jellyfin_credentials');
+            if (credStr) {
+                var cred = JSON.parse(credStr);
+                if (cred && cred.Servers && cred.Servers.length > 0 && cred.Servers[0].AccessToken) {
+                    return cred.Servers[0].AccessToken;
                 }
             }
-            if (!token) {
-                var m = document.cookie.match(/X-Emby-Token=([^;]+)/i);
-                if (m && m[1]) token = decodeURIComponent(m[1]);
+        } catch(e) {}
+        return '';
+    }
+
+    // ---- UserId 获取 ----
+    // userId 存储在 localStorage 的 jellyfin_credentials → Servers[0].UserId
+    function getUserId() {
+        try {
+            var credStr = localStorage.getItem('jellyfin_credentials');
+            if (credStr) {
+                var cred = JSON.parse(credStr);
+                if (cred && cred.Servers && cred.Servers.length > 0 && cred.Servers[0].UserId) {
+                    return cred.Servers[0].UserId;
+                }
             }
         } catch(e) {}
-        return token;
+        return '';
     }
 
     // ---- 路由判断 ----
@@ -331,7 +342,7 @@ public class ShortVideoController : ControllerBase
 
         var styles = [
             '#' + CONTAINER_ID + ' * { margin: 0; padding: 0; box-sizing: border-box; }',
-            '#' + CONTAINER_ID + ' .' + P + '-feed { width: 100%; height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; }',
+            '#' + CONTAINER_ID + ' .' + P + '-feed { width: 100%; height: calc(100% - 80px); overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; }',
             '#' + CONTAINER_ID + ' .' + P + '-feed::-webkit-scrollbar { display: none; }',
             '#' + CONTAINER_ID + ' .' + P + '-card { width: 100%; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; position: relative; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }',
             '#' + CONTAINER_ID + ' video { max-width: 100%; max-height: 100%; object-fit: contain; background: #000; pointer-events: none; }',
@@ -343,15 +354,15 @@ public class ShortVideoController : ControllerBase
             '@keyframes ' + P + '-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }',
             '#' + CONTAINER_ID + ' .' + P + '-top-gradient { position: absolute; top: 0; left: 0; right: 0; height: 120px; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); z-index: 5; pointer-events: none; }',
             '#' + CONTAINER_ID + ' .' + P + '-bottom-gradient { position: absolute; bottom: 0; left: 0; right: 0; height: 200px; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); z-index: 5; pointer-events: none; }',
-            '#' + CONTAINER_ID + ' .' + P + '-actions { position: absolute; right: 12px; bottom: 120px; display: flex; flex-direction: column; gap: 20px; color: #fff; font-size: 12px; text-align: center; z-index: 10; }',
-            '#' + CONTAINER_ID + ' .' + P + '-actions .action-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }',
-            '#' + CONTAINER_ID + ' .' + P + '-actions .icon { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; border: 1px solid rgba(255,255,255,0.1); }',
+            '#' + CONTAINER_ID + ' .' + P + '-actions { position: absolute; right: 12px; bottom: 30px; display: flex; flex-direction: column; gap: 12px; color: #fff; font-size: 11px; text-align: center; z-index: 10; }',
+            '#' + CONTAINER_ID + ' .' + P + '-actions .action-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }',
+            '#' + CONTAINER_ID + ' .' + P + '-actions .icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; border: 1px solid rgba(255,255,255,0.1); }',
             '#' + CONTAINER_ID + ' .' + P + '-actions .icon:active { transform: scale(0.9); background: rgba(255,255,255,0.25); }',
             '#' + CONTAINER_ID + ' .' + P + '-actions .icon.like.liked { color: #ff4757; background: rgba(255,71,87,0.2); }',
-            '#' + CONTAINER_ID + ' .' + P + '-actions .count { font-size: 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-weight: 500; }',
-            '#' + CONTAINER_ID + ' .' + P + '-caption { position: absolute; left: 16px; right: 80px; bottom: 80px; color: #fff; z-index: 10; }',
-            '#' + CONTAINER_ID + ' .' + P + '-caption .title { font-weight: 600; font-size: 16px; margin-bottom: 6px; text-shadow: 0 2px 8px rgba(0,0,0,0.8); line-height: 1.4; }',
-            '#' + CONTAINER_ID + ' .' + P + '-caption .meta { font-size: 13px; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }',
+            '#' + CONTAINER_ID + ' .' + P + '-actions .count { font-size: 11px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-weight: 500; }',
+            '#' + CONTAINER_ID + ' .' + P + '-caption { position: absolute; left: 16px; right: 72px; bottom: 30px; color: #fff; z-index: 10; }',
+            '#' + CONTAINER_ID + ' .' + P + '-caption .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.8); line-height: 1.4; }',
+            '#' + CONTAINER_ID + ' .' + P + '-caption .meta { font-size: 12px; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }',
             '#' + CONTAINER_ID + ' .' + P + '-back { position: absolute; top: 16px; left: 16px; z-index: 20; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 28px; text-decoration: none; line-height: 1; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }',
             '#' + CONTAINER_ID + ' .' + P + '-back svg { display: block; }',
             '#' + CONTAINER_ID + ' .' + P + '-empty { color: #888; text-align: center; padding: 40px; }',
@@ -359,27 +370,31 @@ public class ShortVideoController : ControllerBase
             '#' + CONTAINER_ID + ' .' + P + '-center-anim.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }',
             '#' + CONTAINER_ID + ' .' + P + '-heart { position: absolute; pointer-events: none; z-index: 20; font-size: 80px; animation: ' + P + '-heart-pop 0.8s ease forwards; }',
             '@keyframes ' + P + '-heart-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 40% { transform: translate(-50%, -50%) scale(0.95); } 60% { transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) translateY(-30px); } }',
-            '#' + CONTAINER_ID + ' .' + P + '-controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px 16px; z-index: 10; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); }',
-            '#' + CONTAINER_ID + ' .' + P + '-progress-container { position: relative; width: 100%; height: 20px; display: flex; align-items: center; cursor: pointer; margin-top: 4px; }',
-            '#' + CONTAINER_ID + ' .' + P + '-progress-bg { position: absolute; width: 100%; height: 3px; background: rgba(255,255,255,0.25); border-radius: 2px; }',
-            '#' + CONTAINER_ID + ' .' + P + '-progress-buffer { position: absolute; height: 3px; background: rgba(255,255,255,0.4); border-radius: 2px; width: 0%; }',
-            '#' + CONTAINER_ID + ' .' + P + '-progress-played { position: absolute; height: 3px; background: #fff; border-radius: 2px; width: 0%; }',
-            '#' + CONTAINER_ID + ' .' + P + '-progress-handle { position: absolute; width: 14px; height: 14px; background: #fff; border-radius: 50%; transform: translateX(-50%) scale(0); transition: transform 0.15s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }',
-            '#' + CONTAINER_ID + ' .' + P + '-progress-container:hover .' + P + '-progress-handle, #' + CONTAINER_ID + ' .' + P + '-progress-container.dragging .' + P + '-progress-handle { transform: translateX(-50%) scale(1); }',
-            '#' + CONTAINER_ID + ' .' + P + '-controls-bar { display: flex; align-items: center; gap: 12px; color: #fff; }',
-            '#' + CONTAINER_ID + ' .' + P + '-controls-bar button { background: none; border: none; color: #fff; cursor: pointer; padding: 4px; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s ease; }',
-            '#' + CONTAINER_ID + ' .' + P + '-controls-bar button:active { transform: scale(0.85); }',
-            '#' + CONTAINER_ID + ' .' + P + '-time { font-size: 13px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.8); min-width: 40px; }',
-            '#' + CONTAINER_ID + ' .' + P + '-time-sep { font-size: 13px; opacity: 0.6; }',
-            '#' + CONTAINER_ID + ' .' + P + '-spacer { flex: 1; }',
-            '#' + CONTAINER_ID + ' .' + P + '-rate { font-size: 13px; font-weight: 500; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); cursor: pointer; user-select: none; min-width: 40px; text-align: center; transition: background 0.15s ease; }',
-            '#' + CONTAINER_ID + ' .' + P + '-rate:active { background: rgba(255,255,255,0.25); }',
-            '#' + CONTAINER_ID + ' .' + P + '-rate-menu { position: absolute; bottom: 50px; right: 16px; background: rgba(0,0,0,0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 12px; padding: 8px; display: none; flex-direction: column; gap: 4px; min-width: 80px; border: 1px solid rgba(255,255,255,0.1); z-index: 30; }',
-            '#' + CONTAINER_ID + ' .' + P + '-rate-menu.show { display: flex; }',
-            '#' + CONTAINER_ID + ' .' + P + '-rate-menu .rate-option { padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; text-align: center; color: #fff; transition: background 0.15s ease; }',
-            '#' + CONTAINER_ID + ' .' + P + '-rate-menu .rate-option:hover { background: rgba(255,255,255,0.1); }',
-            '#' + CONTAINER_ID + ' .' + P + '-rate-menu .rate-option.active { background: rgba(255,255,255,0.2); font-weight: 600; }',
-            '#' + CONTAINER_ID + ' .' + P + '-lucide { width: 20px; height: 20px; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; vertical-align: middle; }'
+            // 抖音风格进度条：粗、圆润、有拖拽圆点，仅暂停/悬浮/触摸时显示
+            '#' + CONTAINER_ID + ' .' + P + '-controls { position: absolute; left: 12px; right: 12px; bottom: 5px; z-index: 10; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }',
+            '#' + CONTAINER_ID + ' .' + P + '-card.paused .' + P + '-controls, #' + CONTAINER_ID + ' .' + P + '-card.show-controls .' + P + '-controls { opacity: 1; pointer-events: auto; }',
+            '#' + CONTAINER_ID + ' .' + P + '-progress-container { position: relative; width: 100%; height: 24px; display: flex; align-items: center; cursor: pointer; }',
+            '#' + CONTAINER_ID + ' .' + P + '-progress-bg { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 6px; background: rgba(255,255,255,0.35); border-radius: 4px; }',
+            '#' + CONTAINER_ID + ' .' + P + '-progress-buffer { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 6px; background: rgba(255,255,255,0.5); border-radius: 4px; width: 0%; }',
+            '#' + CONTAINER_ID + ' .' + P + '-progress-played { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 6px; background: #fff; border-radius: 4px; width: 0%; }',
+            '#' + CONTAINER_ID + ' .' + P + '-progress-handle { position: absolute; top: 50%; width: 16px; height: 16px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%) scale(1); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }',
+            // 拖拽时显示的时间
+            '#' + CONTAINER_ID + ' .' + P + '-progress-time { position: absolute; top: -36px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 28px; font-weight: 500; font-variant-numeric: tabular-nums; text-shadow: 0 2px 8px rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.15s ease; pointer-events: none; white-space: nowrap; letter-spacing: 1px; }',
+            '#' + CONTAINER_ID + ' .' + P + '-progress-container.dragging .' + P + '-progress-time { opacity: 1; }',
+            '#' + CONTAINER_ID + ' .' + P + '-controls-bar { display: none; }',
+            '#' + CONTAINER_ID + ' .' + P + '-rate-menu { display: none; }',
+            '#' + CONTAINER_ID + ' .' + P + '-lucide { width: 20px; height: 20px; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; vertical-align: middle; }',
+            // 静音按钮样式：静音状态无背景圆，打开声音有背景圆（抖音风格）
+            '#' + CONTAINER_ID + ' .' + P + '-actions .icon.mute-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; border: 1px solid rgba(255,255,255,0.1); }',
+            '#' + CONTAINER_ID + ' .' + P + '-actions .icon.mute-icon.active { background: rgba(255,255,255,0.8); color: #000; }',
+            // 覆盖底部元素位置，actions 和 caption 与进度条紧凑排列
+            '#' + CONTAINER_ID + ' .' + P + '-controls { bottom: 5; }',
+            '#' + CONTAINER_ID + ' .' + P + '-caption { bottom: 30px; }',
+            '#' + CONTAINER_ID + ' .' + P + '-actions { bottom: 30px; }',
+            // 底部 hub 栏（抖音风格，80px 高度）
+            '#' + CONTAINER_ID + ' .' + P + '-hub { position: absolute; left: 0; right: 0; bottom: 0; height: 80px; display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 25; border-top: 1px solid rgba(255,255,255,0.08); padding-bottom: env(safe-area-inset-bottom); }',
+            '#' + CONTAINER_ID + ' .' + P + '-hub .hub-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; padding: 10px 0; opacity: 0.6; transition: opacity 0.15s ease; background: none; border: none; font-family: inherit; }',
+            '#' + CONTAINER_ID + ' .' + P + '-hub .hub-btn.active { opacity: 1; }'
         ].join('\n');
 
         function buildContainer() {
@@ -401,19 +416,42 @@ public class ShortVideoController : ControllerBase
             style.textContent = styles;
             container.appendChild(style);
 
-            var backBtn = document.createElement('div');
-            backBtn.className = P + '-back';
-            backBtn.innerHTML = '<svg class=""' + P + '-lucide"" xmlns=""http://www.w3.org/2000/svg"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round""><polyline points=""15 18 9 12 15 6""></polyline></svg>';
-            backBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                goBackFromCustomRoute();
-            });
-
             var feed = document.createElement('div');
             feed.className = P + '-feed';
 
-            container.appendChild(backBtn);
             container.appendChild(feed);
+
+            // 底部 hub 栏：回到首页、刷新
+            var hub = document.createElement('div');
+            hub.className = P + '-hub';
+            var hubButtons = [
+                {
+                    label: '首页',
+                    action: function() { goBackFromCustomRoute(); }
+                },
+                {
+                    label: '刷新',
+                    action: null // 刷新动作由 initPlayer 注入
+                }
+            ];
+            hubButtons.forEach(function(btn) {
+                var el = document.createElement('button');
+                el.className = 'hub-btn';
+                el.textContent = btn.label;
+                if (btn.action) {
+                    el.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        btn.action();
+                    });
+                }
+                hub.appendChild(el);
+            });
+            container.appendChild(hub);
+
+            // 暴露 hub 按钮引用，供 initPlayer 注入动作
+            container._hubButtons = hub.querySelectorAll('.hub-btn');
+            container._hub = hub;
+
             return container;
         }
 
@@ -490,6 +528,7 @@ public class ShortVideoController : ControllerBase
                     var muteBtn = card.querySelector('.mute-icon');
                     if (v) { v.muted = globalMuted; v.volume = globalVolume; }
                     if (muteBtn && muteBtn._setIcon) muteBtn._setIcon(globalMuted ? 'volume-x' : 'volume-2');
+                    if (muteBtn) muteBtn.classList.toggle('active', !globalMuted);
                 });
             }
 
@@ -577,25 +616,12 @@ public class ShortVideoController : ControllerBase
                       '<div class=""action-item""><div class=""icon mute-icon""><svg class=""' + P + '-lucide"" xmlns=""http://www.w3.org/2000/svg"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round""><polygon points=""11 5 6 9 2 9 2 15 6 15 11 19 11 5""></polygon><line x1=""23"" y1=""9"" x2=""17"" y2=""15""></line><line x1=""17"" y1=""9"" x2=""23"" y2=""15""></line></svg></div></div>' +
                     '</div>' +
                     '<div class=""' + P + '-controls"">' +
-                      '<div class=""' + P + '-controls-bar"">' +
-                        '<button class=""btn-play""><svg class=""' + P + '-lucide"" xmlns=""http://www.w3.org/2000/svg"" viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round""><polygon points=""5 3 19 12 5 21 5 3""></polygon></svg></button>' +
-                        '<span class=""' + P + '-time time-current"">00:00</span>' +
-                        '<span class=""' + P + '-time-sep"">/</span>' +
-                        '<span class=""' + P + '-time time-total"">00:00</span>' +
-                        '<div class=""' + P + '-spacer""></div>' +
-                        '<div class=""' + P + '-rate"">1x</div>' +
-                      '</div>' +
                       '<div class=""' + P + '-progress-container"">' +
+                        '<div class=""' + P + '-progress-time"">00:00 / 00:00</div>' +
                         '<div class=""' + P + '-progress-bg""></div>' +
                         '<div class=""' + P + '-progress-buffer""></div>' +
                         '<div class=""' + P + '-progress-played""></div>' +
                         '<div class=""' + P + '-progress-handle""></div>' +
-                      '</div>' +
-                      '<div class=""' + P + '-rate-menu"">' +
-                        '<div class=""rate-option"" data-rate=""0.5"">0.5x</div>' +
-                        '<div class=""rate-option active"" data-rate=""1"">1x</div>' +
-                        '<div class=""rate-option"" data-rate=""1.5"">1.5x</div>' +
-                        '<div class=""rate-option"" data-rate=""2"">2x</div>' +
                       '</div>' +
                     '</div>';
 
@@ -617,16 +643,14 @@ public class ShortVideoController : ControllerBase
 
                 var likeIcon = card.querySelector('.icon.like');
                 var likeCountEl = card.querySelector('.like-count');
-                var btnPlay = card.querySelector('.btn-play');
                 var muteIcon = card.querySelector('.mute-icon');
-                var timeCurrent = card.querySelector('.time-current');
-                var timeTotal = card.querySelector('.time-total');
+                var overlay = card.querySelector('.' + P + '-overlay');
                 var progressContainer = card.querySelector('.' + P + '-progress-container');
+                var controls = card.querySelector('.' + P + '-controls');
                 var progressPlayed = card.querySelector('.' + P + '-progress-played');
                 var progressBuffer = card.querySelector('.' + P + '-progress-buffer');
                 var progressHandle = card.querySelector('.' + P + '-progress-handle');
-                var rateBtn = card.querySelector('.' + P + '-rate');
-                var rateMenu = card.querySelector('.' + P + '-rate-menu');
+                var progressTime = card.querySelector('.' + P + '-progress-time');
                 var centerAnim = card.querySelector('.' + P + '-center-anim');
 
                 likeCountEl.textContent = formatLikeCount(likeCount);
@@ -681,8 +705,8 @@ public class ShortVideoController : ControllerBase
                     }
                 }
 
-                v.addEventListener('playing', function() { hideLoading(); setIcon(btnPlay, 'pause'); });
-                v.addEventListener('pause', function() { setIcon(btnPlay, 'play'); });
+                v.addEventListener('playing', function() { hideLoading(); card.classList.remove('paused'); });
+                v.addEventListener('pause', function() { card.classList.add('paused'); });
                 v.addEventListener('waiting', function() { showLoading(); });
 
                 v.addEventListener('timeupdate', function() {
@@ -690,11 +714,11 @@ public class ShortVideoController : ControllerBase
                     var pct = v.duration ? (v.currentTime / v.duration) * 100 : 0;
                     progressPlayed.style.width = pct + '%';
                     progressHandle.style.left = pct + '%';
-                    timeCurrent.textContent = formatTime(v.currentTime);
+                    progressTime.textContent = formatTime(v.currentTime) + ' / ' + formatTime(v.duration);
                 });
 
                 v.addEventListener('loadedmetadata', function() {
-                    timeTotal.textContent = formatTime(v.duration);
+                    progressTime.textContent = '00:00 / ' + formatTime(v.duration);
                     if (triedTranscode) return;
                     var w = v.videoWidth || 0, h = v.videoHeight || 0;
                     if (w === 0 || h === 0) {
@@ -729,8 +753,7 @@ public class ShortVideoController : ControllerBase
                     progressPlayed.style.width = '0%';
                     progressBuffer.style.width = '0%';
                     progressHandle.style.left = '0%';
-                    timeCurrent.textContent = '00:00';
-                    timeTotal.textContent = '00:00';
+                    progressTime.textContent = '00:00 / 00:00';
                     showLoading();
                 }
 
@@ -829,14 +852,71 @@ public class ShortVideoController : ControllerBase
                 }
 
                 function toggleLike() {
-                    isLiked = !isLiked;
+                    var newLiked = !isLiked;
+                    // 先更新 UI，再调 API（乐观更新）
+                    isLiked = newLiked;
                     if (isLiked) { likeCount++; likeIcon.classList.add('liked'); }
                     else { likeCount--; likeIcon.classList.remove('liked'); }
                     likeCountEl.textContent = formatLikeCount(likeCount);
+
+                    // 调用 Jellyfin 收藏 API
+                    toggleJellyfinFavorite(card.dataset.id, newLiked);
                 }
 
+                // 调用 Jellyfin 收藏/取消收藏 API
+                function toggleJellyfinFavorite(itemId, favorite) {
+                    if (!itemId) return;
+                    var userId = getUserId();
+                    if (!userId) {
+                        console.warn('[ShortsModule] 无法获取 userId，跳过收藏 API');
+                        return;
+                    }
+
+                    var url = BASE + '/Users/' + userId + '/FavoriteItems/' + itemId + '?api_key=' + encodeURIComponent(API_KEY);
+
+                    fetch(url, {
+                        method: favorite ? 'POST' : 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    }).then(function(r) {
+                        if (r.ok) {
+                            console.log('[ShortsModule] 收藏' + (favorite ? '成功' : '已取消') + ':', itemId);
+                        } else {
+                            console.error('[ShortsModule] 收藏 API 失败:', r.status);
+                            // 回滚 UI
+                            isLiked = !favorite;
+                            if (isLiked) { likeCount++; likeIcon.classList.add('liked'); }
+                            else { likeCount--; likeIcon.classList.remove('liked'); }
+                            likeCountEl.textContent = formatLikeCount(likeCount);
+                        }
+                    }).catch(function(e) {
+                        console.error('[ShortsModule] 收藏 API 异常:', e);
+                    });
+                }
+
+                // 查询初始收藏状态
+                function checkFavoriteStatus(itemId) {
+                    if (!itemId) return;
+                    var userId = getUserId();
+                    if (!userId) return;
+
+                    var url = BASE + '/Users/' + userId + '/Items/' + itemId + '?api_key=' + encodeURIComponent(API_KEY);
+
+                    fetch(url)
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data && data.UserData && data.UserData.IsFavorite) {
+                                isLiked = true;
+                                likeIcon.classList.add('liked');
+                                likeCountEl.textContent = formatLikeCount(likeCount + 1);
+                            }
+                        })
+                        .catch(function(e) {});
+                }
+
+                // 异步查询收藏状态
+                checkFavoriteStatus(card.dataset.id);
+
                 likeIcon.addEventListener('click', function(e) { e.stopPropagation(); toggleLike(); });
-                btnPlay.addEventListener('click', function(e) { e.stopPropagation(); togglePlay(); });
                 muteIcon.addEventListener('click', function(e) {
                     e.stopPropagation();
                     globalMuted = !globalMuted;
@@ -846,17 +926,41 @@ public class ShortVideoController : ControllerBase
                 progressContainer.addEventListener('mousedown', function(e) { e.stopPropagation(); startDrag(e); });
                 progressContainer.addEventListener('touchstart', function(e) { e.stopPropagation(); startDrag(e.touches[0]); });
 
+                // 鼠标悬浮/触摸时显示进度条
+                var hideControlsTimer = null;
+                function showControlsBar() {
+                    clearTimeout(hideControlsTimer);
+                    card.classList.add('show-controls');
+                }
+                function hideControlsBar() {
+                    hideControlsTimer = setTimeout(function() { card.classList.remove('show-controls'); }, 1500);
+                }
+                // 鼠标悬浮整个卡片
+                card.addEventListener('mouseenter', showControlsBar);
+                card.addEventListener('mouseleave', function() { card.classList.remove('show-controls'); clearTimeout(hideControlsTimer); });
+                // 触摸整个卡片
+                overlay.addEventListener('touchstart', function() { showControlsBar(); }, { passive: true });
+                overlay.addEventListener('touchend', function() { hideControlsBar(); }, { passive: true });
+                overlay.addEventListener('touchcancel', function() { hideControlsBar(); });
+                // 进度条交互时保持显示
+                if (controls) {
+                    controls.addEventListener('mouseenter', showControlsBar);
+                }
+
                 function startDrag(e) {
                     isDragging = true;
                     progressContainer.classList.add('dragging');
                     updateProgressFromEvent(e);
                     document.addEventListener('mousemove', onDragMove);
                     document.addEventListener('mouseup', onDragEnd);
-                    document.addEventListener('touchmove', onTouchMove);
+                    document.addEventListener('touchmove', onTouchMove, { passive: false });
                     document.addEventListener('touchend', onTouchEnd);
+                    // 禁止页面上下滚动
+                    var feedEl = feed;
+                    if (feedEl) feedEl.style.overflowY = 'hidden';
                 }
                 function onDragMove(e) { if (isDragging) updateProgressFromEvent(e); }
-                function onTouchMove(e) { if (isDragging) updateProgressFromEvent(e.touches[0]); }
+                function onTouchMove(e) { if (isDragging) { e.preventDefault(); updateProgressFromEvent(e.touches[0]); } }
                 function onDragEnd(e) { if (isDragging) { updateProgressFromEvent(e); finishDrag(); } }
                 function onTouchEnd(e) { if (isDragging) finishDrag(); }
                 function finishDrag() {
@@ -866,27 +970,21 @@ public class ShortVideoController : ControllerBase
                     document.removeEventListener('mouseup', onDragEnd);
                     document.removeEventListener('touchmove', onTouchMove);
                     document.removeEventListener('touchend', onTouchEnd);
+                    // 恢复页面滚动
+                    var feedEl = feed;
+                    if (feedEl) feedEl.style.overflowY = '';
                 }
                 function updateProgressFromEvent(e) {
                     var rect = progressContainer.getBoundingClientRect();
                     var pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                     progressPlayed.style.width = (pct * 100) + '%';
                     progressHandle.style.left = (pct * 100) + '%';
-                    if (v.duration) { v.currentTime = pct * v.duration; timeCurrent.textContent = formatTime(pct * v.duration); }
+                    if (v.duration) {
+                        var t = pct * v.duration;
+                        v.currentTime = t;
+                        progressTime.textContent = formatTime(t) + ' / ' + formatTime(v.duration);
+                    }
                 }
-
-                rateBtn.addEventListener('click', function(e) { e.stopPropagation(); rateMenu.classList.toggle('show'); });
-                rateMenu.querySelectorAll('.rate-option').forEach(function(opt) {
-                    opt.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        var rate = parseFloat(opt.dataset.rate);
-                        v.playbackRate = rate;
-                        rateBtn.textContent = rate + 'x';
-                        rateMenu.querySelectorAll('.rate-option').forEach(function(o) { o.classList.remove('active'); });
-                        opt.classList.add('active');
-                        rateMenu.classList.remove('show');
-                    });
-                });
 
                 card._initPlayer = initPlayer;
                 card._destroyPlayer = destroyPlayer;
@@ -948,7 +1046,6 @@ public class ShortVideoController : ControllerBase
 
                 v.muted = globalMuted;
                 v.volume = globalVolume;
-                btnPlay._setIcon = function(name) { setIcon(btnPlay, name); };
                 muteIcon._setIcon = function(name) { setIcon(muteIcon, name); };
 
                 feed.appendChild(card);
@@ -1016,6 +1113,35 @@ public class ShortVideoController : ControllerBase
                     document.removeEventListener('keydown', onKeydown);
                 }
             };
+
+            // 获取当前可见卡片
+            function getCurrentCard() {
+                var cards = feed.querySelectorAll('.' + P + '-card');
+                var center = feed.scrollTop + feed.clientHeight / 2;
+                for (var i = 0; i < cards.length; i++) {
+                    var top = cards[i].offsetTop, bottom = top + cards[i].offsetHeight;
+                    if (center >= top && center < bottom) return cards[i];
+                }
+                return null;
+            }
+
+            // 为 hub 的刷新按钮注入动作
+            var hubButtons = container._hubButtons;
+            if (hubButtons && hubButtons.length >= 2) {
+                // 刷新按钮（索引 1）
+                hubButtons[1].addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var card = getCurrentCard();
+                    if (card && card._destroyPlayer) {
+                        card._destroyPlayer();
+                        setTimeout(function() {
+                            if (card._initPlayer) card._initPlayer();
+                            var v = card._video;
+                            if (v) v.play().catch(function() {});
+                        }, 100);
+                    }
+                });
+            }
 
             var scriptsToLoad = [];
             if (!window.Hls) {
