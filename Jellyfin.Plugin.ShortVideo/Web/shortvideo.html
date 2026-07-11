@@ -374,45 +374,87 @@
 
         function resolveToken() {
             var urlParam = new URLSearchParams(location.search).get('api_key');
-            if (urlParam && urlParam.length >= 10) {
-                console.log('[ShortVideo] token from URL param');
+            if (urlParam && urlParam.length >= 8) {
+                console.log('[ShortVideo] token from URL param, len=' + urlParam.length);
                 return urlParam;
             }
-            if (SERVER_API_KEY && SERVER_API_KEY !== '__APIKEY__' && SERVER_API_KEY.length >= 10) {
-                console.log('[ShortVideo] token from server injection');
+            if (SERVER_API_KEY && SERVER_API_KEY !== '__APIKEY__' && SERVER_API_KEY.length >= 8) {
+                console.log('[ShortVideo] token from server injection, len=' + SERVER_API_KEY.length);
                 return SERVER_API_KEY;
             }
             var m = document.cookie.match(/X-Emby-Token=([^;]+)/i);
-            if (m && m[1].length >= 10) {
-                console.log('[ShortVideo] token from cookie');
-                return m[1];
+            if (m && m[1] && m[1].length >= 8) {
+                console.log('[ShortVideo] token from cookie, len=' + m[1].length);
+                return decodeURIComponent(m[1]);
+            }
+            try {
+                if (typeof ApiClient !== 'undefined') {
+                    var t = '';
+                    if (typeof ApiClient.accessToken === 'function') {
+                        try { t = ApiClient.accessToken(); } catch(e) {}
+                    } else if (ApiClient.accessToken) {
+                        t = ApiClient.accessToken;
+                    }
+                    if (t && t.length >= 8) {
+                        console.log('[ShortVideo] token from ApiClient, len=' + t.length);
+                        return t;
+                    }
+                }
+            } catch(e) {}
+            try {
+                var creds = JSON.parse(localStorage.getItem('jellyfin_credentials') || '{}');
+                var servers = creds.Servers || [];
+                for (var si = 0; si < servers.length; si++) {
+                    var at = servers[si].AccessToken;
+                    if (at && at.length >= 8) {
+                        console.log('[ShortVideo] token from jellyfin_credentials, len=' + at.length);
+                        return at;
+                    }
+                }
+            } catch(e4) {
+                console.warn('[ShortVideo] jellyfin_credentials parse failed:', e4);
             }
             try {
                 for (var i = 0; i < localStorage.length; i++) {
                     var k = localStorage.key(i);
                     var v = localStorage.getItem(k);
-                    if (!v || v.charAt(0) !== '{') continue;
-                    try {
-                        var parsed = JSON.parse(v);
-                        if (parsed && typeof parsed === 'object') {
-                            var found = findTokenInObject(parsed);
-                            if (found) {
-                                console.log('[ShortVideo] token from localStorage key:', k);
-                                return found;
+                    if (!v) continue;
+                    if (v.charAt(0) === '{') {
+                        try {
+                            var parsed = JSON.parse(v);
+                            if (parsed && typeof parsed === 'object') {
+                                var found = findTokenInObject(parsed);
+                                if (found) {
+                                    console.log('[ShortVideo] token from localStorage JSON key:', k, 'len=' + found.length);
+                                    return found;
+                                }
                             }
+                        } catch (e2) {}
+                    } else if (v.length >= 20 && v.length <= 200 && /^[A-Za-z0-9+/=_|.-]+$/.test(v)) {
+                        var kl = k.toLowerCase();
+                        if (kl.indexOf('token') >= 0 || kl.indexOf('access') >= 0 || kl.indexOf('apikey') >= 0 || kl.indexOf('api_key') >= 0) {
+                            console.log('[ShortVideo] token from localStorage string key:', k, 'len=' + v.length);
+                            return v;
                         }
-                    } catch (e2) {}
+                    }
                 }
             } catch (e3) {
                 console.warn('[ShortVideo] localStorage scan failed:', e3);
             }
-            console.warn('[ShortVideo] No token found! localStorage keys:', Object.keys(localStorage));
+            console.warn('[ShortVideo] No token found! localStorage keys=' + localStorage.length);
             return '';
         }
 
         function findTokenInObject(obj, depth) {
-            if (!obj || typeof obj !== 'object' || depth > 5) return null;
+            if (!obj || typeof obj !== 'object' || (depth || 0) > 6) return null;
             depth = depth || 0;
+            if (Array.isArray(obj)) {
+                for (var i = 0; i < obj.length; i++) {
+                    var sub = findTokenInObject(obj[i], depth + 1);
+                    if (sub) return sub;
+                }
+                return null;
+            }
             var keys = Object.keys(obj);
             for (var i = 0; i < keys.length; i++) {
                 var k = keys[i];
@@ -420,11 +462,12 @@
                 if (!v) continue;
                 if (typeof v === 'string') {
                     var kl = k.toLowerCase();
-                    if (kl === 'accesstoken' && v.length >= 16 && v.length <= 64) {
+                    if ((kl === 'accesstoken' || kl === 'token' || kl === 'apikey' || kl === 'api_key')
+                        && v.length >= 10 && v.length <= 200) {
                         return v;
                     }
                 }
-                if (typeof v === 'object' && !Array.isArray(v)) {
+                if (typeof v === 'object') {
                     var sub = findTokenInObject(v, depth + 1);
                     if (sub) return sub;
                 }
@@ -523,9 +566,24 @@
                 return;
             }
 
+            function ensureApiKey(url, key) {
+                if (key && key.length >= 10) {
+                    if (url.indexOf('api_key=') >= 0) {
+                        return url.replace(/([?&])api_key=[^&]*/, '$1api_key=' + encodeURIComponent(key));
+                    }
+                    var sep = url.indexOf('?') >= 0 ? '&' : '?';
+                    return url + sep + 'api_key=' + encodeURIComponent(key);
+                } else {
+                    return url.replace(/([?&])api_key=[^&]*/, function(match, prefix) {
+                        return prefix === '?' ? '?' : '';
+                    }).replace(/\?$/, '').replace(/\?&/, '?');
+                }
+            }
+
             var src = streamUrl.indexOf('http') === 0
                 ? streamUrl
                 : BASE + streamUrl;
+            src = ensureApiKey(src, API_KEY);
 
             var transcodeParams = '&VideoCodec=h264&AudioCodec=aac&VideoBitrate=4000000&AudioBitrate=192000';
             var hlsSrc = src.replace(/\/stream\?(.*)/, '/main.m3u8?$1' + transcodeParams);
@@ -535,6 +593,7 @@
                     hlsSrc = BASE + '/Videos/' + id + '/main.m3u8?api_key=' + encodeURIComponent(API_KEY) + transcodeParams;
                 }
             }
+            hlsSrc = ensureApiKey(hlsSrc, API_KEY);
 
             card.innerHTML =
                 '<div class="top-gradient"></div>' +
@@ -741,6 +800,15 @@
 
             v.addEventListener('loadedmetadata', function () {
                 timeTotal.textContent = formatTime(v.duration);
+                if (triedTranscode) return;
+                var w = v.videoWidth || 0;
+                var h = v.videoHeight || 0;
+                console.log('[ShortVideo] loadedmetadata: videoWidth=' + w + ', videoHeight=' + h);
+                if (w === 0 || h === 0) {
+                    triedTranscode = true;
+                    console.warn('[ShortVideo] no video track detected (only audio), falling back to HLS transcode');
+                    fallbackToHls();
+                }
             });
 
             v.addEventListener('progress', function () {
@@ -783,18 +851,6 @@
                 }
             });
 
-            v.addEventListener('loadedmetadata', function () {
-                if (triedTranscode) return;
-                var w = v.videoWidth || 0;
-                var h = v.videoHeight || 0;
-                console.log('[ShortVideo] loadedmetadata: videoWidth=' + w + ', videoHeight=' + h);
-                if (w === 0 || h === 0) {
-                    triedTranscode = true;
-                    console.warn('[ShortVideo] no video track detected (only audio), falling back to HLS transcode');
-                    fallbackToHls();
-                }
-            });
-
             v.addEventListener('play', function () {
                 if (triedTranscode) return;
                 setTimeout(function () {
@@ -829,7 +885,10 @@
                     hls = new Hls({
                         enableWorker: true,
                         lowLatencyMode: false,
-                        backBufferLength: 60
+                        backBufferLength: 30,
+                        maxBufferLength: 15,
+                        maxMaxBufferLength: 30,
+                        startFragPrefetch: true
                     });
                     hls.loadSource(hlsSrc);
                     hls.attachMedia(v);
@@ -1056,7 +1115,8 @@
                             lowLatencyMode: false,
                             backBufferLength: 30,
                             maxBufferLength: 15,
-                            maxMaxBufferLength: 30
+                            maxMaxBufferLength: 30,
+                            startFragPrefetch: true
                         });
                         hls.loadSource(hlsSrc);
                         hls.attachMedia(v);
@@ -1075,7 +1135,15 @@
                         });
 
                         hls.on(Hls.Events.ERROR, function (event, data) {
-                            console.warn('[ShortVideo] prefetch HLS error:', data.type, data.details, 'for', name);
+                            if (data.fatal) {
+                                console.warn('[ShortVideo] prefetch fatal HLS error, destroying:', data.type, data.details, 'for', name);
+                                try { hls.destroy(); } catch (e) {}
+                                hls = null;
+                                card._prefetched = false;
+                                triedTranscode = false;
+                            } else {
+                                console.warn('[ShortVideo] prefetch HLS error:', data.type, data.details, 'for', name);
+                            }
                         });
                     } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
                         v.src = hlsSrc;
@@ -1144,21 +1212,21 @@
                     v.play().catch(function () {});
                 } else {
                     v.pause();
-                    if (Math.abs(i - visibleIndex) > 2 && card._destroyPlayer) {
+                    if (Math.abs(i - visibleIndex) > 3 && card._destroyPlayer) {
                         card._destroyPlayer();
                     }
                 }
             });
 
             if (visibleIndex >= 0) {
-                for (var j = 1; j <= 2; j++) {
+                for (var j = 1; j <= 3; j++) {
                     var nextIdx = visibleIndex + j;
                     if (nextIdx < cards.length && cards[nextIdx]._prefetch) {
                         cards[nextIdx]._prefetch();
                     }
                 }
                 var remaining = cards.length - visibleIndex - 1;
-                if (remaining <= 2 && !isLoading) {
+                if (remaining <= 3 && !isLoading) {
                     console.log('[ShortVideo] 到达倒数第3条，提前加载下一批');
                     loadBatch();
                 }

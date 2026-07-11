@@ -199,7 +199,19 @@ public class ShortVideoController : ControllerBase
         if (!document.body) return;
 
         var token = '';
-        try { token = (typeof ApiClient !== 'undefined' && ApiClient.accessToken) ? ApiClient.accessToken() : ''; } catch(e) {}
+        try {
+            if (typeof ApiClient !== 'undefined') {
+                if (typeof ApiClient.accessToken === 'function') {
+                    token = ApiClient.accessToken() || '';
+                } else if (ApiClient.accessToken) {
+                    token = ApiClient.accessToken;
+                }
+            }
+            if (!token) {
+                var m = document.cookie.match(/X-Emby-Token=([^;]+)/i);
+                if (m && m[1]) token = decodeURIComponent(m[1]);
+            }
+        } catch(e) {}
 
         var link = document.createElement('a');
         link.id = 'shortvideo-fab';
