@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { Heart, Volume2, VolumeX } from 'lucide-react';
-import { formatTime, shouldDirectStream, buildHlsSrc } from '../utils/videoUtils';
-import { getToken, getUserId, BASE_URL, apiUrl, ensureApiKey } from '../common/auth';
+import { formatTime, shouldDirectStream } from '../utils/videoUtils';
+import { BASE_URL } from '../common/auth';
+import { toggleFavorite, getItemUserData, getImageUrl, ensureStreamKey, getHlsUrl, reportPlaybackStart, reportPlaybackStop } from '../common/api';
 
 export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChange }) {
   const videoRef = useRef(null);
@@ -26,10 +27,9 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
   const [touchShow, setTouchShow] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [heartPos, setHeartPos] = useState({ x: 0, y: 0 });
+  const playbackReportedRef = useRef(false);
 
-  const API_KEY = getToken();
-  const userId = getUserId();
-
+  const itemId = item.id || item.Id || '';
   const streamUrl = item.streamUrl || item.StreamUrl || '';
   const name = item.name || item.Name || '';
   const duration = item.durationSeconds || item.DurationSeconds || 0;
@@ -39,10 +39,10 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
 
   const useTranscode = !shouldDirectStream(videoCodec, audioCodec, container);
   const src = streamUrl.indexOf('http') === 0 ? streamUrl : BASE_URL + streamUrl;
-  const srcWithKey = ensureApiKey(src, API_KEY);
-  const hlsSrc = buildHlsSrc(streamUrl, item.id || item.Id || '', API_KEY, BASE_URL);
+  const srcWithKey = ensureStreamKey(src);
+  const hlsSrc = getHlsUrl(streamUrl, itemId);
 
-  const posterUrl = BASE_URL + '/Items/' + (item.id || item.Id || '') + '/Images/Primary?fillHeight=1080&fillWidth=720&quality=80';
+  const posterUrl = getImageUrl(itemId, 720, 1080);
 
   const initPlayer = useCallback(() => {
     if (initializedRef.current) return;
@@ -61,6 +61,12 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
 
   const destroyPlayer = useCallback(() => {
     const v = videoRef.current;
+    // 上报播放停止
+    if (playbackReportedRef.current && itemId) {
+      const ticks = v && v.currentTime ? Math.floor(v.currentTime * 10000000) : 0;
+      reportPlaybackStop(itemId, ticks);
+      playbackReportedRef.current = false;
+    }
     if (hlsRef.current) {
       try {
         hlsRef.current.stopLoad();
@@ -80,7 +86,7 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
     setProgress(0);
     setBuffer(0);
     setTimeDisplay('00:00 / 00:00');
-  }, []);
+  }, [itemId]);
 
   const fallbackToHls = useCallback(() => {
     if (!hlsSrc) return;
@@ -147,21 +153,12 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
     const newLiked = !isLiked;
     setIsLiked(newLiked);
 
-    const itemId = item.id || item.Id || '';
-    if (itemId && userId) {
-      const url = BASE_URL + '/Users/' + userId + '/FavoriteItems/' + itemId + '?api_key=' + encodeURIComponent(API_KEY);
-      fetch(url, {
-        method: newLiked ? 'POST' : 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      }).then(r => {
-        if (!r.ok) {
-          setIsLiked(!newLiked);
-        }
-      }).catch(() => {
-        setIsLiked(!newLiked);
+    if (itemId) {
+      toggleFavorite(itemId, newLiked).then(ok => {
+        if (!ok) setIsLiked(!newLiked);
       });
     }
-  }, [isLiked, item.id, item.Id, userId, API_KEY]);
+  }, [isLiked, itemId]);
 
   const handleDoubleTap = useCallback((e) => {
     toggleLike();
@@ -267,8 +264,22 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
     const onPlaying = () => {
       setIsLoading(false);
       setIsPaused(false);
+      // 上报播放开始（仅一次）
+      if (!playbackReportedRef.current && itemId) {
+        playbackReportedRef.current = true;
+        reportPlaybackStart(itemId);
+      }
     };
-    const onPause = () => setIsPaused(true);
+    const onPause = () => {
+      setIsPaused(true);
+      // 上报播放停止
+      if (playbackReportedRef.current && itemId) {
+        const v = videoRef.current;
+        const ticks = v && v.currentTime ? Math.floor(v.currentTime * 10000000) : 0;
+        reportPlaybackStop(itemId, ticks);
+        playbackReportedRef.current = false;
+      }
+    };
     const onWaiting = () => setIsLoading(true);
     const onTimeUpdate = () => {
       if (isDraggingRef.current) return;
@@ -329,19 +340,13 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
   }, [hlsSrc, srcWithKey, fallbackToHls]);
 
   useEffect(() => {
-    const itemId = item.id || item.Id || '';
-    if (!itemId || !userId) return;
-
-    const url = BASE_URL + '/Users/' + userId + '/Items/' + itemId + '?api_key=' + encodeURIComponent(API_KEY);
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        if (data && data.UserData && data.UserData.IsFavorite) {
-          setIsLiked(true);
-        }
-      })
-      .catch(() => {});
-  }, [item.id, item.Id, userId, API_KEY]);
+    if (!itemId) return;
+    getItemUserData(itemId).then(data => {
+      if (data && data.UserData && data.UserData.IsFavorite) {
+        setIsLiked(true);
+      }
+    });
+  }, [itemId]);
 
   useEffect(() => {
     const v = videoRef.current;

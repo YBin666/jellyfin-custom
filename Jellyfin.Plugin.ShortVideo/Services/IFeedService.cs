@@ -9,10 +9,12 @@ namespace Jellyfin.Plugin.ShortVideo.Services;
 public interface IFeedService
 {
     /// <summary>获取下一条短视频。如果队列空了会自动重新加载。</summary>
-    ShortVideoItem? Next();
+    /// <param name="userId">用户 ID，用于推荐加权（收藏优先）。为空则不加权。</param>
+    ShortVideoItem? Next(Guid? userId = null);
 
     /// <summary>获取接下来 N 条（用于前端预取），N 由配置 PrefetchCount 决定。</summary>
-    IReadOnlyList<ShortVideoItem> NextBatch();
+    /// <param name="userId">用户 ID，用于推荐加权。</param>
+    IReadOnlyList<ShortVideoItem> NextBatch(Guid? userId = null);
 
     /// <summary>强制刷新候选池（可由定时任务调用）。</summary>
     void Reload();

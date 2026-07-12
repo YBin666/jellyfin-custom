@@ -1,8 +1,5 @@
 const DEV_STORAGE_KEY = 'jellyfin_dev_credentials';
 
-// 开发模式检测：Vite注入的import.meta.env.DEV
-const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
-
 function loadDevCreds() {
   try {
     const raw = localStorage.getItem(DEV_STORAGE_KEY);
@@ -14,44 +11,33 @@ function loadDevCreds() {
   return null;
 }
 
-export function getToken() {
-  // 优先从开发模式存储读取
+function getCredentials() {
   const devCreds = loadDevCreds();
   if (devCreds && devCreds.token) {
-    return devCreds.token;
+    return { token: devCreds.token, userId: devCreds.userId || '' };
   }
 
-  // 从 Jellyfin 标准 localStorage 读取
   try {
     const credStr = localStorage.getItem('jellyfin_credentials');
     if (credStr) {
       const cred = JSON.parse(credStr);
-      if (cred && cred.Servers && cred.Servers.length > 0 && cred.Servers[0].AccessToken) {
-        return cred.Servers[0].AccessToken;
+      if (cred && cred.Servers && cred.Servers.length > 0) {
+        return {
+          token: cred.Servers[0].AccessToken || '',
+          userId: cred.Servers[0].UserId || ''
+        };
       }
     }
   } catch (e) {}
-  return '';
+  return { token: '', userId: '' };
+}
+
+export function getToken() {
+  return getCredentials().token;
 }
 
 export function getUserId() {
-  // 优先从开发模式存储读取
-  const devCreds = loadDevCreds();
-  if (devCreds && devCreds.userId) {
-    return devCreds.userId;
-  }
-
-  // 从 Jellyfin 标准 localStorage 读取
-  try {
-    const credStr = localStorage.getItem('jellyfin_credentials');
-    if (credStr) {
-      const cred = JSON.parse(credStr);
-      if (cred && cred.Servers && cred.Servers.length > 0 && cred.Servers[0].UserId) {
-        return cred.Servers[0].UserId;
-      }
-    }
-  } catch (e) {}
-  return '';
+  return getCredentials().userId;
 }
 
 export const BASE_URL = typeof window !== 'undefined'
@@ -68,13 +54,12 @@ export function apiUrl(path) {
   return url;
 }
 
-export function ensureApiKey(url, key) {
-  if (key && key.length >= 10) {
-    if (url.indexOf('api_key=') >= 0) {
-      return url.replace(/([?&])api_key=[^&]*/, '$1api_key=' + encodeURIComponent(key));
-    }
-    const sep = url.indexOf('?') >= 0 ? '&' : '?';
-    return url + sep + 'api_key=' + encodeURIComponent(key);
-  }
-  return url;
+/**
+ * 确保 URL 包含 api_key 参数。如果已有则不重复添加。
+ */
+export function ensureApiKey(url, apiKey) {
+  if (!apiKey) return url;
+  if (url.indexOf('api_key=') >= 0) return url;
+  const sep = url.indexOf('?') >= 0 ? '&' : '?';
+  return url + sep + 'api_key=' + encodeURIComponent(apiKey);
 }

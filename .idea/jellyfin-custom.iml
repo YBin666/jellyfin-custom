@@ -2,7 +2,12 @@
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/Jellyfin.Plugin.ShortVideo/Web/react-app/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/Jellyfin.Plugin.ShortVideo/bin/Debug" />
+      <excludeFolder url="file://$MODULE_DIR$/Jellyfin.Plugin.ShortVideo/obj/Debug/net9.0/ref" />
+      <excludeFolder url="file://$MODULE_DIR$/Jellyfin.Plugin.ShortVideo/obj/Debug/net9.0/refint" />
+    </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="lucide" level="application" />

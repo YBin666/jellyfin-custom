@@ -3,7 +3,7 @@ namespace Jellyfin.Plugin.ShortVideo.Services;
 /// <summary>
 /// 一条短视频的精简信息，供前端播放器使用。
 /// </summary>
-public class ShortVideoItem
+public record ShortVideoItem
 {
     /// <summary>媒体项 Id。</summary>
     public Guid Id { get; set; }
