@@ -20,16 +20,11 @@ function jellyfinFetch(path, options = {}) {
 // ==================== 短视频插件接口 ====================
 
 /**
- * 获取下一批短视频（携带 userId 用于推荐加权）。
+ * 获取下一批短视频（随机分页抽取，所有视频机会均等）。
  * @returns {Promise<Array>} ShortVideoItem 数组
  */
 export function getNextBatch() {
-  const userId = getUserId();
-  let path = '/ShortVideo/NextBatch';
-  if (userId) {
-    path += '?userId=' + encodeURIComponent(userId);
-  }
-  return authFetch(path)
+  return authFetch('/ShortVideo/NextBatch')
     .then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
