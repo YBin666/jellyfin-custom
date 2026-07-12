@@ -33,7 +33,8 @@ public class Plugin : BasePlugin<Configuration.PluginConfiguration>
         logger.LogInformation("ShortVideo Plugin: ApplicationPaths.PluginsPath = {Path}", applicationPaths.PluginsPath);
 
         // 自实现 JS 注入：直接改 jellyfin-web/index.html，在 </body> 前插入
-        // <script src="/ShortVideo/Inject.js"></script>，由 Controller 动态返回 JS。
+        // <script src="/ShortVideo/Web/bootstrap.js"></script>，由 WebAssetController
+        // 动态返回 React 引导脚本（IIFE 格式单文件 bundle）。
         // 不依赖任何第三方插件。失败时静默跳过，插件仍可通过直接 URL 访问。
         logger.LogInformation("ShortVideo Plugin: 开始执行 JS 注入...");
         var injectResult = SelfInjector.TryInject(applicationPaths, logger);

@@ -8,8 +8,8 @@ namespace Jellyfin.Plugin.ShortVideo;
 
 /// <summary>
 /// 自实现 JS 注入：启动时修改 jellyfin-web 的 index.html，
-/// 在 &lt;/body&gt; 前插入一个 &lt;script&gt; 标签指向 /ShortVideo/Inject.js，
-/// 由本插件的 Controller 动态返回 JS 内容。
+/// 在 &lt;/body&gt; 前插入一个 &lt;script&gt; 标签指向 /ShortVideo/Web/bootstrap.js，
+/// 由 WebAssetController 动态返回 React 引导脚本（IIFE 格式单文件 bundle）。
 ///
 /// 优点：
 /// - 零外部依赖，不需要装 JavaScript Injector
@@ -24,10 +24,9 @@ public static class SelfInjector
     /// <summary>注入标记注释，用于幂等判断。</summary>
     private const string InjectMarker = "<!-- Jellyfin.Plugin.ShortVideo injected -->";
 
-    /// <summary>注入的 script 标签（ShortVideo + Diy）。</summary>
+    /// <summary>注入的 script 标签：引导脚本由 WebAssetController 提供。</summary>
     private const string ScriptTag = InjectMarker + "\n" +
-        "<script src=\"/ShortVideo/Inject.js\"></script>\n" +
-        "<script src=\"/Diy/Inject.js\"></script>\n";
+        "<script src=\"/ShortVideo/Web/bootstrap.js\"></script>\n";
 
     /// <summary>
     /// 尝试找到并修改 index.html，注入 script 标签。
