@@ -25,7 +25,7 @@ export default defineConfig({
         main: './src/main-prod.jsx'
       },
       output: {
-        entryFileNames: 'bootstrap.js',
+        entryFileNames: 'inject.js',
         assetFileNames: '[name].[ext]',
         format: 'iife'
       }

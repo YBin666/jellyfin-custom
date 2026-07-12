@@ -10,91 +10,98 @@ Jellyfin.Plugin.ShortVideo/
 │   └── PluginConfiguration.cs     # 插件配置类
 ├── Controllers/
 │   ├── ShortVideoController.cs    # 短视频业务接口（/ShortVideo/NextBatch、Reload）
-│   ├── DiyController.cs           # DIY模块业务接口（/Diy/*，预留）
-│   └── WebAssetController.cs      # Web资源服务（/ShortVideo/Web/bootstrap.js）
+│   └── DiyController.cs           # DIY模块业务接口（/Diy/*，预留）
+├── Infrastructure/
+│   └── ScriptHost/                # 脚本托管基础设施（通用，与业务解耦）
+│       ├── ScriptHostController.cs # 脚本资源控制器（/ScriptHost/*）
+│       └── SelfInjector.cs        # JS注入器（修改index.html）
 ├── Services/
 │   ├── FeedService.cs             # 视频流服务
 │   ├── IFeedService.cs            # 服务接口
 │   └── ShortVideoItem.cs          # 数据模型
 ├── Plugin.cs                      # 插件入口类
-├── SelfInjector.cs                # JS注入器（修改index.html）
 ├── ServiceRegistrator.cs          # 服务注册
 ├── Jellyfin.Plugin.ShortVideo.csproj
 ├── Web/
-│   ├── react-app/                 # React前端项目
-│   │   ├── src/
-│   │   │   ├── common/            # 公共基础设施
-│   │   │   │   ├── auth.js        # 认证Token获取
-│   │   │   │   └── infrastructure.js # 路由注册、抽屉菜单、悬浮按钮
-│   │   │   ├── shorts/            # 短视频模块
-│   │   │   │   ├── ShortsPage.jsx # 短视频主页面
-│   │   │   │   ├── VideoCard.jsx  # 视频卡片组件
-│   │   │   │   ├── FavoritesPanel.jsx # 收藏面板
-│   │   │   │   └── shorts.css     # 短视频样式
-│   │   │   ├── diy/               # DIY模块
-│   │   │   │   ├── DiyPage.jsx    # DIY页面
-│   │   │   │   └── diy.css        # DIY样式
-│   │   │   ├── utils/             # 工具函数
-│   │   │   │   └── videoUtils.js  # 视频工具函数（直链/HLS回退）
-│   │   │   ├── main-prod.jsx      # 生产环境入口（IIFE）
-│   │   │   ├── main-dev.jsx       # 开发环境入口（带凭据管理）
-│   │   │   ├── shortvideo-entry.jsx # 旧入口（保留兼容）
-│   │   │   └── diy-entry.jsx      # 旧入口（保留兼容）
-│   │   ├── dist/                  # 构建产物（打包进DLL）
-│   │   │   └── bootstrap.js
-│   │   ├── index.html             # 开发环境HTML
-│   │   ├── vite.config.js         # Vite配置
-│   │   ├── package.json           # 前端依赖
-│   │   ├── DEV.md                 # 开发指南
-│   │   └── pnpm-lock.yaml
+│   └── react-app/                 # React前端项目
+│       ├── src/
+│       │   ├── common/            # 公共基础设施
+│       │   │   ├── auth.js        # 认证Token获取
+│       │   │   └── infrastructure.js # 路由注册、抽屉菜单、悬浮按钮
+│       │   ├── shorts/            # 短视频模块
+│       │   │   ├── ShortsPage.jsx # 短视频主页面
+│       │   │   ├── VideoCard.jsx  # 视频卡片组件
+│       │   │   ├── FavoritesPanel.jsx # 收藏面板
+│       │   │   └── shorts.css     # 短视频样式
+│       │   ├── diy/               # DIY模块
+│       │   │   ├── DiyPage.jsx    # DIY页面
+│       │   │   └── diy.css        # DIY样式
+│       │   ├── utils/             # 工具函数
+│       │   │   └── videoUtils.js  # 视频工具函数（直链/HLS回退）
+│       │   ├── main-prod.jsx      # 生产环境入口（IIFE）
+│       │   └── main-dev.jsx       # 开发环境入口（带凭据管理）
+│       ├── dist/                  # 构建产物（打包进DLL）
+│       │   └── inject.js
+│       ├── index.html             # 开发环境HTML
+│       ├── vite.config.js         # Vite配置
+│       ├── package.json           # 前端依赖
+│       ├── DEV.md                 # 开发指南
+│       └── pnpm-lock.yaml
 └── README.md                      # 本文档
 ```
 
 ## 设计思路
 
-### 1. 注入机制
+### 1. ScriptHost基础设施
 
-插件采用**单文件引导注入架构**，将React应用嵌入Jellyfin原生页面：
+ScriptHost 是**独立的前端脚本基础设施**，与业务代码互不侵入。只做两件事：修改 index.html 注入 script 标签，提供 inject.js 资源服务。
 
 ```
 Jellyfin启动
   → Plugin构造函数执行
-  → SelfInjector.TryInject() 修改 index.html
-    → 在 </body> 前插入 <script src="/ShortVideo/Web/bootstrap.js"></script>
+    → SelfInjector.TryInject() 修改 index.html
+      → 在 </body> 前插入 <script src="/ScriptHost/inject.js"></script>
   → 浏览器加载 index.html
-  → 请求 /ShortVideo/Web/bootstrap.js
-    → WebAssetController.BootstrapJs() 从DLL嵌入资源读取React bundle
-    → 返回 bootstrap.js（IIFE格式单文件）
+  → 请求 /ScriptHost/inject.js
+    → ScriptHostController 直接从程序集嵌入资源读取 inject.js
+    → 返回JS（IIFE格式单文件）
   → React代码执行，注册路由和基础设施
   → 用户访问 #/shorts 时挂载React组件
 ```
 
-**Controller 职责分离**：
+**职责分离**：
 
-| Controller | 路由前缀 | 职责 |
-|------------|----------|------|
-| WebAssetController | `/ShortVideo/Web` | Web资源服务（bootstrap.js、styles.css） |
-| ShortVideoController | `/ShortVideo` | 短视频业务接口（NextBatch、Reload） |
-| DiyController | `/Diy` | DIY模块业务接口（预留） |
+| 组件 | 职责 | 依赖 |
+|------|------|------|
+| SelfInjector | 修改 index.html，插入 script 标签 | 无（纯静态方法） |
+| ScriptHostController | 提供 /ScriptHost/inject.js 资源 | 无（直接读嵌入资源） |
+| ShortVideoController | 短视频业务接口 | IFeedService |
+| DiyController | DIY模块业务接口（预留） | 无 |
+
+**ScriptHost API**：
+
+| 路由 | 方法 | 说明 |
+|------|------|------|
+| `/ScriptHost/inject.js` | GET | 返回前端引导脚本（从嵌入资源直接读取） |
+| `/ScriptHost/Status` | GET | 健康检查，返回资源可用状态 |
 
 **关键设计决策**：
-- **自注入模式**：不依赖第三方JavaScript Injector插件，SelfInjector直接修改index.html
-- **幂等注入**：通过`<!-- Jellyfin.Plugin.ShortVideo injected -->`标记避免重复注入
+- **零依赖**：ScriptHost 不依赖任何服务接口，直接从程序集嵌入资源读取，与业务代码完全解耦
+- **通用命名**：`ScriptHost` 与 `ShortVideo` 业务名称无关，可被任何插件复用
+- **幂等注入**：通过 `<!-- Jellyfin.ScriptHost injected -->` 标记避免重复注入
 - **原子写入**：先写临时文件再覆盖，避免写入中途崩溃损坏index.html
 - **优雅降级**：注入失败时静默跳过，插件仍可通过直接URL访问
-- **职责分离**：业务Controller只定义功能接口，Web资源服务由独立的WebAssetController负责
 
 **关键代码**：
-- [SelfInjector.cs](file:///c:/CodeFiles/IdeaProject/jellyfin-custom/Jellyfin.Plugin.ShortVideo/SelfInjector.cs)：注入器核心逻辑
+- [ScriptHostController.cs](file:///c:/CodeFiles/IdeaProject/jellyfin-custom/Jellyfin.Plugin.ShortVideo/Infrastructure/ScriptHost/ScriptHostController.cs)：脚本资源控制器
+- [SelfInjector.cs](file:///c:/CodeFiles/IdeaProject/jellyfin-custom/Jellyfin.Plugin.ShortVideo/Infrastructure/ScriptHost/SelfInjector.cs)：注入器核心逻辑
 - [Plugin.cs](file:///c:/CodeFiles/IdeaProject/jellyfin-custom/Jellyfin.Plugin.ShortVideo/Plugin.cs)：插件入口触发注入
-- [WebAssetController.cs](file:///c:/CodeFiles/IdeaProject/jellyfin-custom/Jellyfin.Plugin.ShortVideo/Controllers/WebAssetController.cs)：返回React引导脚本
 
 ### 2. React构建策略
 
 采用**单文件IIFE构建**，将所有依赖打包成一个自执行函数：
 
 ```javascript
-// 构建产物格式
 (function(){"use strict";
     // React核心代码（约40KB）
     // ReactDOM核心代码
@@ -117,11 +124,11 @@ Jellyfin启动
 build: {
   rollupOptions: {
     input: {
-      main: './src/main-prod.jsx'  // 单一入口
+      main: './src/main-prod.jsx'
     },
     output: {
-      entryFileNames: 'bootstrap.js',  // 固定文件名（无哈希）
-      format: 'iife'  // 关键：IIFE格式
+      entryFileNames: 'inject.js',
+      format: 'iife'
     }
   }
 }
@@ -170,7 +177,6 @@ Token获取采用**双模式策略**：
 **API请求自动附加Token**：
 
 ```javascript
-// auth.js
 export function apiUrl(path) {
   const token = getToken();
   let url = BASE_URL + path;
@@ -211,9 +217,9 @@ export function apiUrl(path) {
 |------|---------------|----------|-----------|
 | 短视频 | ShortVideoController | `/ShortVideo` | ShortsPage |
 | DIY | DiyController | `/Diy` | DiyPage |
-| Web资源 | WebAssetController | `/ShortVideo/Web` | bootstrap.js（统一引导脚本） |
+| 脚本资源 | ScriptHostController | `/ScriptHost` | inject.js（统一引导脚本） |
 
-前端代码打包在同一个 `bootstrap.js` 中，通过 `main-prod.jsx` 统一注册路由，短视频和DIY各挂载独立的React组件。
+前端代码打包在同一个 `inject.js` 中，通过 `main-prod.jsx` 统一注册路由，短视频和DIY各挂载独立的React组件。
 
 **通信方式**：通过`window.__svRegisterRoute`、`window.__svGoBack`等全局接口进行模块间通信。
 
@@ -228,9 +234,8 @@ export function apiUrl(path) {
 **解决方案**：修改Vite配置为IIFE格式
 
 ```javascript
-// vite.config.js
 output: {
-  format: 'iife'  // 关键修改
+  format: 'iife'
 }
 ```
 
@@ -243,12 +248,11 @@ output: {
 **解决方案**：合并为单一入口文件
 
 ```javascript
-// vite.config.js
 input: {
-  main: './src/main-prod.jsx'  // 单一入口
+  main: './src/main-prod.jsx'
 },
 output: {
-  entryFileNames: 'bootstrap.js'  // 固定文件名，无哈希
+  entryFileNames: 'inject.js'
 }
 ```
 
@@ -266,14 +270,14 @@ icacls "C:\Program Files\Jellyfin\Server\jellyfin-web\index.html" /grant Everyon
 
 ### 问题4：嵌入资源命名不匹配
 
-**现象**：Controller查找资源名`Jellyfin.Plugin.ShortVideo.Web.react-app.dist.bootstrap.js`，但实际嵌入资源名为`Jellyfin.Plugin.ShortVideo.Web.react_app.dist.bootstrap.js`（短横线变成了下划线）
+**现象**：Controller查找资源名`Jellyfin.Plugin.ShortVideo.Web.react-app.dist.inject.js`，但实际嵌入资源名为`Jellyfin.Plugin.ShortVideo.Web.react_app.dist.inject.js`（短横线变成了下划线）
 
 **原因**：.NET嵌入资源命名规则将目录名中的短横线替换为下划线
 
 **解决方案**：使用`EndsWith()`而非完全匹配
 
 ```csharp
-var bundleResource = resourceNames.FirstOrDefault(r => r.EndsWith("bootstrap.js"));
+var bundleResource = resourceNames.FirstOrDefault(r => r.EndsWith("inject.js"));
 ```
 
 ### 问题5：开发模式与生产模式环境差异
@@ -286,7 +290,6 @@ var bundleResource = resourceNames.FirstOrDefault(r => r.EndsWith("bootstrap.js"
 3. 通过Vite proxy转发API请求到Jellyfin
 
 ```javascript
-// infrastructure.js
 const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
 if (IS_DEV) {
   console.log('[ShortVideo] 开发模式，跳过Jellyfin DOM注入');
@@ -317,20 +320,26 @@ if (IS_DEV) {
 **解决方案**：在路由离开时调用`root.unmount()`，并在VideoCard组件中清理hls.js实例
 
 ```javascript
-// main-prod.jsx
 state: {
   destroy: () => {
-    root.unmount();  // 关键：卸载React组件
+    root.unmount();
   }
 }
 ```
+
+### 问题9：JS注入功能与业务耦合
+
+**现象**：注入器和资源服务都以`ShortVideo`命名，与业务代码互相侵入
+
+**原因**：最初设计时未考虑职责分离
+
+**解决方案**：重构为通用的`ScriptHost`基础设施，只保留两个文件：`SelfInjector`（注入script标签）和`ScriptHostController`（提供JS资源），直接从程序集嵌入资源读取，不依赖任何服务接口，与业务代码完全解耦
 
 ## 开发流程
 
 ### 1. 环境准备
 
 ```bash
-# 安装前端依赖
 cd Web/react-app
 pnpm install
 ```
@@ -338,10 +347,8 @@ pnpm install
 ### 2. 开发模式
 
 ```bash
-# 启动Vite dev server
 cd Web/react-app
 pnpm dev
-
 # 访问 http://localhost:5173/?dev=1
 # 在顶部工具栏输入Token和UserId（从Jellyfin的localStorage获取）
 ```
@@ -355,11 +362,8 @@ pnpm dev
 ### 3. 构建生产版本
 
 ```bash
-# 构建React项目（输出到 dist/bootstrap.js）
 cd Web/react-app
 pnpm build
-
-# 构建插件DLL（自动将dist目录打包为嵌入资源）
 cd ..
 dotnet build -c Release
 ```
@@ -367,20 +371,11 @@ dotnet build -c Release
 ### 4. 安装插件
 
 ```bash
-# 停止Jellyfin
 Get-Process -Name jellyfin | Stop-Process -Force
-
-# 创建插件目录（首次安装）
 mkdir "C:\Users\Yangb\AppData\Local\jellyfin\plugins\Jellyfin.Plugin.ShortVideo" -Force
-
-# 复制DLL
 Copy-Item "bin/Release/net9.0/Jellyfin.Plugin.ShortVideo.dll" `
     "C:\Users\Yangb\AppData\Local\jellyfin\plugins\Jellyfin.Plugin.ShortVideo\" -Force
-
-# 删除缓存（重要：清除插件故障状态）
 Remove-Item "C:\Users\Yangb\AppData\Local\jellyfin\plugins\Jellyfin.Plugin.ShortVideo\meta.json" -ErrorAction SilentlyContinue
-
-# 启动Jellyfin
 Start-Process "C:\Program Files\Jellyfin\Server\jellyfin.exe" -Verb RunAs
 ```
 
@@ -423,21 +418,21 @@ Start-Process "C:\Program Files\Jellyfin\Server\jellyfin.exe" -Verb RunAs
 3. **路由格式**：使用hash路由（`#/shorts`、`#/diy`）与Jellyfin保持一致
 4. **HLS转码**：必须包含`VideoCodec=h264&AudioCodec=aac`参数确保兼容性
 5. **React卸载**：离开路由时必须调用`root.unmount()`防止内存泄漏
-6. **注入标记**：使用`<!-- Jellyfin.Plugin.ShortVideo injected -->`确保幂等注入
+6. **注入标记**：使用`<!-- Jellyfin.ScriptHost injected -->`确保幂等注入
 7. **模块隔离**：短视频和DIY模块完全独立，互不依赖
+8. **ScriptHost命名**：注入脚本路径为`/ScriptHost/inject.js`，与业务解耦
 
 ## 日志排查
 
 ```bash
-# 搜索插件相关日志
-Get-Content "$env:LOCALAPPDATA\jellyfin\log\log_*.log" | Select-String "ShortVideo"
-
-# 常见日志关键词
-# ShortVideo Plugin: 插件启动日志
-# ShortVideo Injector: JS注入日志
-# ShortVideo Controller: 业务API请求日志
-# WebAsset: Web资源服务日志（bootstrap.js加载）
+Get-Content "$env:LOCALAPPDATA\jellyfin\log\log_*.log" | Select-String "ShortVideo|ScriptHost"
 ```
+
+**常见日志关键词**：
+- `ShortVideo Plugin`：插件启动日志
+- `ScriptHost Injector`：JS注入日志
+- `ScriptHost`：脚本资源服务日志（inject.js加载）
+- `ShortVideo Controller`：业务API请求日志
 
 ## 常见问题
 
@@ -446,8 +441,8 @@ Get-Content "$env:LOCALAPPDATA\jellyfin\log\log_*.log" | Select-String "ShortVid
 **排查步骤**：
 1. 检查DLL是否在正确路径：`C:\Users\<用户>\AppData\Local\jellyfin\plugins\Jellyfin.Plugin.ShortVideo\`
 2. 删除`meta.json`缓存文件
-3. 检查Jellyfin日志中是否有`ShortVideo`相关错误
-4. 检查index.html是否包含注入标记
+3. 检查Jellyfin日志中是否有`ShortVideo`或`ScriptHost`相关错误
+4. 检查index.html是否包含注入标记`<!-- Jellyfin.ScriptHost injected -->`
 
 ### Q2：视频无法播放？
 
