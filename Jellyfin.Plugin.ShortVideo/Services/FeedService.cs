@@ -10,43 +10,48 @@ namespace Jellyfin.Plugin.ShortVideo.Services;
 
 /// <summary>
 /// FeedService 实现：用 ILibraryManager.GetItemsResult 查询所有视频项，
-/// 按时长过滤得到候选池，内存维护一个游标，支持随机/顺序。
+/// 按时长过滤得到候选池。当提供 userId 时，收藏视频获得更高权重（3x），
+/// 实现个性化推荐。
 /// </summary>
 public class FeedService : IFeedService
 {
     private readonly ILibraryManager _libraryManager;
     private readonly ILogger<FeedService> _logger;
     private readonly IMediaSourceManager _mediaSourceManager;
+    private readonly IUserManager _userManager;
     private PluginConfiguration _config;
 
     private readonly object _lock = new();
     private List<ShortVideoItem> _pool = new();
     private int _cursor;
+    private Guid? _currentUserId;
 
     public FeedService(
         ILibraryManager libraryManager,
         ILogger<FeedService> logger,
-        IMediaSourceManager mediaSourceManager)
+        IMediaSourceManager mediaSourceManager,
+        IUserManager userManager)
     {
         _libraryManager = libraryManager;
         _logger = logger;
         _mediaSourceManager = mediaSourceManager;
+        _userManager = userManager;
         // 延迟取配置：插件可能在构造时还没完全加载完
         _config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         logger.LogInformation("==== ShortVideo FeedService: 构造完成 ====");
-        logger.LogInformation("ShortVideo FeedService: Plugin.Instance = {Instance}", Plugin.Instance != null ? "已加载" : "null");
         logger.LogInformation("ShortVideo FeedService: 配置 => MinDuration={Min}s, MaxDuration={Max}s, Shuffle={Shuffle}, Prefetch={Prefetch}",
             _config.MinDurationSeconds, _config.MaxDurationSeconds, _config.Shuffle, _config.PrefetchCount);
     }
 
     /// <inheritdoc />
-    public ShortVideoItem? Next()
+    public ShortVideoItem? Next(Guid? userId = null)
     {
         lock (_lock)
         {
-            if (_pool.Count == 0 || _cursor >= _pool.Count)
+            // userId 变化时重建候选池（切换用户或从无用户切换到有用户）
+            if (userId != _currentUserId || _pool.Count == 0 || _cursor >= _pool.Count)
             {
-                ReloadInternal();
+                ReloadInternal(userId);
             }
 
             if (_pool.Count == 0)
@@ -64,13 +69,13 @@ public class FeedService : IFeedService
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<ShortVideoItem> NextBatch()
+    public IReadOnlyList<ShortVideoItem> NextBatch(Guid? userId = null)
     {
         var count = Math.Max(1, _config.PrefetchCount);
         var result = new List<ShortVideoItem>(count);
         for (var i = 0; i < count; i++)
         {
-            var item = Next();
+            var item = Next(userId);
             if (item == null)
             {
                 break;
@@ -87,30 +92,26 @@ public class FeedService : IFeedService
     {
         lock (_lock)
         {
-            ReloadInternal();
+            ReloadInternal(_currentUserId);
         }
     }
 
-    private void ReloadInternal()
+    private void ReloadInternal(Guid? userId = null)
     {
         // 每次刷新时重新读配置，使仪表盘修改即时生效
         _config = Plugin.Instance?.Configuration ?? _config;
-        _logger.LogInformation("==== ShortVideo FeedService: 开始加载候选池 ====");
-        _logger.LogInformation("ShortVideo FeedService: 配置 => MinDuration={Min}s, MaxDuration={Max}s, Shuffle={Shuffle}",
-            _config.MinDurationSeconds, _config.MaxDurationSeconds, _config.Shuffle);
+        _currentUserId = userId;
+        _logger.LogInformation("==== ShortVideo FeedService: 开始加载候选池 (userId={UserId}) ====",
+            userId?.ToString() ?? "(none)");
 
         // 时长以 tick 为单位：1 秒 = 10_000_000 ticks
         var minTicks = (long)_config.MinDurationSeconds * TimeSpan.TicksPerSecond;
         var maxTicks = (long)_config.MaxDurationSeconds * TimeSpan.TicksPerSecond;
-        _logger.LogInformation("ShortVideo FeedService: 时长过滤 => minTicks={Min}, maxTicks={Max}", minTicks, maxTicks);
 
         var query = new InternalItemsQuery
         {
-            // 只取视频类媒体
             IncludeItemTypes = new[] { BaseItemKind.Video },
-            // 一次取够候选池
             Limit = 500,
-            // 不分用户
             User = null
         };
 
@@ -119,20 +120,26 @@ public class FeedService : IFeedService
         _logger.LogInformation("ShortVideo FeedService: 查询返回 TotalRecordCount={Total}, Items.Count={Count}",
             items.TotalRecordCount, items.Items.Count);
 
+        // 如果提供了 userId，查询该用户的收藏视频 ID 集合
+        HashSet<Guid>? favoriteIds = null;
+        if (userId.HasValue)
+        {
+            favoriteIds = GetUserFavoriteIds(userId.Value);
+            _logger.LogInformation("ShortVideo FeedService: 用户收藏视频数={Count}", favoriteIds.Count);
+        }
+
         var pool = new List<ShortVideoItem>(items.TotalRecordCount);
         var skippedNoPath = 0;
         var skippedDuration = 0;
 
         foreach (var item in items.Items)
         {
-            // 跳过没有真实文件路径的项目（如虚拟合集、文件夹、集合）
             if (string.IsNullOrEmpty(item.Path))
             {
                 skippedNoPath++;
                 continue;
             }
 
-            // 按时长过滤
             var runTime = item.RunTimeTicks ?? 0;
             if (runTime < minTicks || runTime > maxTicks)
             {
@@ -141,10 +148,8 @@ public class FeedService : IFeedService
             }
 
             var seconds = runTime / (double)TimeSpan.TicksPerSecond;
-
             var streamUrl = BuildStreamUrl(item.Id);
 
-            // 提取视频/音频编码信息，供前端判断是否需要转码
             string? videoCodec = null;
             string? audioCodec = null;
             string? container = null;
@@ -177,7 +182,7 @@ public class FeedService : IFeedService
                 _logger.LogWarning(ex, "ShortVideo FeedService: 获取 {Name} 的媒体流信息失败", item.Name);
             }
 
-            pool.Add(new ShortVideoItem
+            var svItem = new ShortVideoItem
             {
                 Id = item.Id,
                 Name = item.Name,
@@ -187,30 +192,29 @@ public class FeedService : IFeedService
                 AudioCodec = audioCodec,
                 Container = container,
                 PrimaryImageTag = item.Id.ToString("N")
-            });
+            };
+
+            pool.Add(svItem);
+
+            // 收藏视频额外添加 1 份副本，实现 2x 权重
+            if (favoriteIds != null && favoriteIds.Contains(item.Id))
+            {
+                pool.Add(svItem with { });
+            }
         }
 
-        _logger.LogInformation("ShortVideo FeedService: 过滤结果 => 入选={In}, 跳过(无路径)={NoPath}, 跳过(时长不符)={Dur}",
+        _logger.LogInformation("ShortVideo FeedService: 过滤结果 => 入选={In} (含加权副本), 跳过(无路径)={NoPath}, 跳过(时长不符)={Dur}",
             pool.Count, skippedNoPath, skippedDuration);
-
-        // 打印编码分布统计，方便排查兼容性问题
-        var videoCodecStats = pool.GroupBy(p => p.VideoCodec ?? "(unknown)")
-            .Select(g => $"{g.Key}:{g.Count()}");
-        var containerStats = pool.GroupBy(p => p.Container ?? "(unknown)")
-            .Select(g => $"{g.Key}:{g.Count()}");
-        _logger.LogInformation("ShortVideo FeedService: 视频编码分布 => {Stats}", string.Join(", ", videoCodecStats));
-        _logger.LogInformation("ShortVideo FeedService: 容器格式分布 => {Stats}", string.Join(", ", containerStats));
 
         if (_config.Shuffle)
         {
-            // 简单洗牌，避免每次启动顺序相同
             var rng = Random.Shared;
             for (var i = pool.Count - 1; i > 0; i--)
             {
                 var j = rng.Next(i + 1);
                 (pool[i], pool[j]) = (pool[j], pool[i]);
             }
-            _logger.LogInformation("ShortVideo FeedService: 已随机洗牌");
+            _logger.LogInformation("ShortVideo FeedService: 已随机洗牌 (加权池)");
         }
 
         _pool = pool;
@@ -219,11 +223,42 @@ public class FeedService : IFeedService
     }
 
     /// <summary>
-    /// 拼接 Jellyfin 原生播放流地址：/Videos/{id}/stream?static=true
-    /// 优先直接返回原始文件（零转码开销）。
-    /// 浏览器不支持的格式由前端检测错误后自动回退到转码 URL。
-    /// 注意：用相对路径，前端会拼上 BASE；api_key 由 Controller 注入替换占位符。
+    /// 查询用户收藏的视频 ID 集合。
     /// </summary>
+    private HashSet<Guid> GetUserFavoriteIds(Guid userId)
+    {
+        var result = new HashSet<Guid>();
+        try
+        {
+            var user = _userManager.GetUserById(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("ShortVideo FeedService: 未找到用户 {UserId}", userId);
+                return result;
+            }
+
+            var favQuery = new InternalItemsQuery
+            {
+                User = user,
+                IncludeItemTypes = new[] { BaseItemKind.Video },
+                IsFavorite = true,
+                Recursive = true,
+                Limit = 500
+            };
+            var favResult = _libraryManager.GetItemsResult(favQuery);
+            foreach (var item in favResult.Items)
+            {
+                result.Add(item.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ShortVideo FeedService: 查询用户收藏失败");
+        }
+
+        return result;
+    }
+
     private static string BuildStreamUrl(Guid itemId)
     {
         return $"/Videos/{itemId}/stream?static=true&api_key=__APIKEY__";

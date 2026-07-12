@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import ShortsPage from './shorts/ShortsPage';
 import DiyPage from './diy/DiyPage';
 import { goBackFromCustomRoute } from './common/infrastructure';
 
 const DEV_STORAGE_KEY = 'jellyfin_dev_credentials';
+const TOOLBAR_COLLAPSED_KEY = 'jellyfin_dev_toolbar_collapsed';
+
+function loadToolbarCollapsed() {
+  return localStorage.getItem(TOOLBAR_COLLAPSED_KEY) === 'true';
+}
 
 function loadDevCredentials() {
   try {
@@ -42,6 +47,10 @@ function DevApp() {
     const saveBtn = document.getElementById('saveBtn');
     const reloadBtn = document.getElementById('reloadBtn');
     const statusEl = document.getElementById('status');
+    const devToolbar = document.getElementById('devToolbar');
+    const devRoot = document.getElementById('devRoot');
+    const collapseToolbarBtn = document.getElementById('collapseToolbarBtn');
+    const expandToolbarBtn = document.getElementById('expandToolbarBtn');
 
     if (!pageSelect || !tokenInput || !userIdInput || !saveBtn || !reloadBtn) return;
 
@@ -64,6 +73,35 @@ function DevApp() {
     saveBtn.addEventListener('click', onSave);
     reloadBtn.addEventListener('click', onReload);
 
+    // 工具栏折叠/展开
+    let toolbarCollapsed = loadToolbarCollapsed();
+    const applyToolbarState = () => {
+      if (toolbarCollapsed) {
+        devToolbar.classList.add('collapsed');
+        devRoot.classList.add('fullscreen');
+        expandToolbarBtn.classList.add('visible');
+      } else {
+        devToolbar.classList.remove('collapsed');
+        devRoot.classList.remove('fullscreen');
+        expandToolbarBtn.classList.remove('visible');
+      }
+    };
+    const onCollapseToolbar = () => {
+      toolbarCollapsed = true;
+      localStorage.setItem(TOOLBAR_COLLAPSED_KEY, 'true');
+      applyToolbarState();
+    };
+    const onExpandToolbar = () => {
+      toolbarCollapsed = false;
+      localStorage.setItem(TOOLBAR_COLLAPSED_KEY, 'false');
+      applyToolbarState();
+    };
+    if (devToolbar && devRoot && collapseToolbarBtn && expandToolbarBtn) {
+      applyToolbarState();
+      collapseToolbarBtn.addEventListener('click', onCollapseToolbar);
+      expandToolbarBtn.addEventListener('click', onExpandToolbar);
+    }
+
     const updateStatus = () => {
       statusEl.textContent = status;
       statusEl.className = 'dev-status ' + (creds.token && creds.userId ? 'ok' : 'err');
@@ -74,6 +112,8 @@ function DevApp() {
       pageSelect.removeEventListener('change', onPageChange);
       saveBtn.removeEventListener('click', onSave);
       reloadBtn.removeEventListener('click', onReload);
+      if (collapseToolbarBtn) collapseToolbarBtn.removeEventListener('click', onCollapseToolbar);
+      if (expandToolbarBtn) expandToolbarBtn.removeEventListener('click', onExpandToolbar);
     };
   }, [status, creds]);
 

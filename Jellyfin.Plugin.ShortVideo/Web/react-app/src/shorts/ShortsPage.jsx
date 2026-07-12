@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import FavoritesPanel from './FavoritesPanel';
-import { apiUrl, BASE_URL, getToken, getUserId } from '../common/auth';
+import { getNextBatch, getStreamUrl } from '../common/api';
 import './shorts.css';
 
 export default function ShortsPage() {
@@ -17,11 +17,7 @@ export default function ShortsPage() {
   const loadBatch = useCallback(() => {
     if (isLoading) return;
     setIsLoading(true);
-    fetch(apiUrl('/ShortVideo/NextBatch'), { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
+    getNextBatch()
       .then(newItems => {
         setIsLoading(false);
         if (!newItems || newItems.length === 0) return;
@@ -137,8 +133,14 @@ export default function ShortsPage() {
 
   const handleFavoritesClick = useCallback((e) => {
     e.preventDefault();
-    setShowFavorites(true);
-    setActiveTab('favorites');
+    setShowFavorites(prev => {
+      if (prev) {
+        setActiveTab('home');
+      } else {
+        setActiveTab('favorites');
+      }
+      return !prev;
+    });
   }, []);
 
   const handleMuteToggle = useCallback(() => {
@@ -151,7 +153,7 @@ export default function ShortsPage() {
     const newItem = {
       id: item.Id,
       name: item.Name,
-      streamUrl: '/Videos/' + item.Id + '/stream?static=true',
+      streamUrl: getStreamUrl(item.Id),
       durationSeconds: item.RunTimeTicks ? item.RunTimeTicks / 10000000 : 0,
       videoCodec: '',
       audioCodec: '',

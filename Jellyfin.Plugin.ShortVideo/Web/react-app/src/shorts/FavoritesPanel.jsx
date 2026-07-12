@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getToken, getUserId, BASE_URL, apiUrl } from '../common/auth';
+import { getFavorites, getThumbnailUrl } from '../common/api';
 
 export default function FavoritesPanel({ show, onBack, onPlayItem }) {
   const [items, setItems] = useState([]);
@@ -13,21 +13,11 @@ export default function FavoritesPanel({ show, onBack, onPlayItem }) {
   }, [show]);
 
   const loadFavorites = () => {
-    const userId = getUserId();
-    if (!userId) return;
-
     setLoading(true);
-    const url = BASE_URL + '/Users/' + userId + '/Items?IsFavorite=true&Recursive=true&IncludeItemTypes=Video&Fields=BasicSyncInfo,PrimaryImageAspectRatio&api_key=' + encodeURIComponent(getToken());
-
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        setItems(data.Items || []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
+    getFavorites().then(data => {
+      setItems(data.Items || []);
+      setLoading(false);
+    });
   };
 
   return (
@@ -52,7 +42,7 @@ export default function FavoritesPanel({ show, onBack, onPlayItem }) {
               onClick={() => onPlayItem(item)}
             >
               <img
-                src={BASE_URL + '/Items/' + item.Id + '/Images/Primary?fillHeight=320&fillWidth=180&quality=80'}
+                src={getThumbnailUrl(item.Id)}
                 alt={item.Name || ''}
               />
               <div className="name">{item.Name || ''}</div>

@@ -59,3 +59,4 @@ pnpm-debug.log*
 .astro
 
 *.local
+/Jellyfin.Plugin.ShortVideo/obj/

@@ -29,14 +29,15 @@ public class ShortVideoController : ControllerBase
     public IActionResult NextBatch()
     {
         _logger.LogInformation("ShortVideo Controller: 收到 /ShortVideo/NextBatch 请求");
-        var batch = _feedService.NextBatch();
+        var userId = GetUserIdFromRequest();
+        var batch = _feedService.NextBatch(userId);
         var token = GetApiKeyFromRequest();
         foreach (var i in batch)
         {
             i.StreamUrl = i.StreamUrl.Replace("__APIKEY__", token);
         }
 
-        _logger.LogInformation("ShortVideo Controller: /NextBatch 返回 {Count} 条", batch.Count);
+        _logger.LogInformation("ShortVideo Controller: /NextBatch 返回 {Count} 条 (userId={UserId})", batch.Count, userId);
         return Ok(batch);
     }
 
@@ -67,5 +68,15 @@ public class ShortVideoController : ControllerBase
         }
 
         return string.Empty;
+    }
+
+    private Guid? GetUserIdFromRequest()
+    {
+        if (Request.Query.TryGetValue("userId", out var v) && !string.IsNullOrEmpty(v))
+        {
+            return Guid.TryParse(v, out var guid) ? guid : null;
+        }
+
+        return null;
     }
 }
