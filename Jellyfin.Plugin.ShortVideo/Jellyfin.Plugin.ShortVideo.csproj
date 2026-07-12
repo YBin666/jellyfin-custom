@@ -23,8 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- 把 Web 目录下的静态页面打包为嵌入资源，运行时由 Controller 读取 -->
-    <EmbeddedResource Include="Web\**\*" />
+    <EmbeddedResource Include="Web\**\*.js" />
   </ItemGroup>
 
 </Project>

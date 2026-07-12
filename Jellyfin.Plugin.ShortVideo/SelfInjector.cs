@@ -24,8 +24,10 @@ public static class SelfInjector
     /// <summary>注入标记注释，用于幂等判断。</summary>
     private const string InjectMarker = "<!-- Jellyfin.Plugin.ShortVideo injected -->";
 
-    /// <summary>注入的 script 标签。</summary>
-    private const string ScriptTag = InjectMarker + "\n<script src=\"/ShortVideo/Inject.js\"></script>\n";
+    /// <summary>注入的 script 标签（ShortVideo + Diy）。</summary>
+    private const string ScriptTag = InjectMarker + "\n" +
+        "<script src=\"/ShortVideo/Inject.js\"></script>\n" +
+        "<script src=\"/Diy/Inject.js\"></script>\n";
 
     /// <summary>
     /// 尝试找到并修改 index.html，注入 script 标签。
