@@ -12,7 +12,9 @@ export default function ShortsPage() {
   const [globalMuted, setGlobalMuted] = useState(true);
   const [showFavorites, setShowFavorites] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
-  const homeLastClickRef = useRef(0);
+  const refreshLastClickRef = useRef(0);
+  const loadBatchRef = useRef(null);
+  const playVisibleRef = useRef(null);
 
   const loadBatch = useCallback(() => {
     if (isLoading) return;
@@ -24,7 +26,7 @@ export default function ShortsPage() {
         setItems(prev => [...prev, ...newItems]);
         if (!firstBatchLoaded) {
           setFirstBatchLoaded(true);
-          setTimeout(() => playVisible(), 200);
+          setTimeout(() => playVisibleRef.current?.(), 200);
         }
       })
       .catch(e => {
@@ -32,16 +34,6 @@ export default function ShortsPage() {
         console.error('[ShortsPage] loadBatch error:', e);
       });
   }, [isLoading, firstBatchLoaded]);
-
-  const forceRefresh = useCallback(() => {
-    setItems([]);
-    setFirstBatchLoaded(false);
-    setIsLoading(false);
-    if (feedRef.current) {
-      feedRef.current.scrollTop = 0;
-    }
-    setTimeout(() => loadBatch(), 50);
-  }, [loadBatch]);
 
   const playVisible = useCallback(() => {
     const feed = feedRef.current;
@@ -79,10 +71,23 @@ export default function ShortsPage() {
       }
       const remaining = cards.length - visibleIndex - 1;
       if (remaining <= 3 && !isLoading) {
-        loadBatch();
+        loadBatchRef.current?.();
       }
     }
-  }, [isLoading, loadBatch]);
+  }, [isLoading]);
+
+  const forceRefresh = useCallback(() => {
+    setItems([]);
+    setFirstBatchLoaded(false);
+    setIsLoading(false);
+    if (feedRef.current) {
+      feedRef.current.scrollTop = 0;
+    }
+    setTimeout(() => loadBatchRef.current?.(), 50);
+  }, []);
+
+  loadBatchRef.current = loadBatch;
+  playVisibleRef.current = playVisible;
 
   const handleScroll = useCallback(() => {
     let snapTimer;
@@ -98,18 +103,18 @@ export default function ShortsPage() {
 
   const handleHomeClick = useCallback((e) => {
     e.preventDefault();
-    const now = Date.now();
-    if (now - homeLastClickRef.current < 300) {
-      forceRefresh();
-      homeLastClickRef.current = 0;
-    } else {
-      homeLastClickRef.current = now;
-    }
-    setActiveTab('home');
-  }, [forceRefresh]);
+    window.location.hash = '#/home';
+  }, []);
 
   const handleRefreshClick = useCallback((e) => {
     e.preventDefault();
+    const now = Date.now();
+    if (now - refreshLastClickRef.current < 300) {
+      forceRefresh();
+      refreshLastClickRef.current = 0;
+      return;
+    }
+    refreshLastClickRef.current = now;
     const feed = feedRef.current;
     if (!feed) return;
     const cards = feed.querySelectorAll('.sv-card');
@@ -129,7 +134,7 @@ export default function ShortsPage() {
         break;
       }
     }
-  }, []);
+  }, [forceRefresh]);
 
   const handleFavoritesClick = useCallback((e) => {
     e.preventDefault();

@@ -188,23 +188,24 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
     }, 300);
   }, [handleDoubleTap, togglePlay]);
 
-  const handleProgressDown = useCallback((e) => {
-    e.stopPropagation();
-    isDraggingRef.current = true;
-    setIsDragging(true);
-    updateProgressFromEvent(e);
-    document.addEventListener('mousemove', handleDragMove);
-    document.addEventListener('mouseup', handleDragEnd);
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-    const feed = cardRef.current?.closest('.sv-feed');
-    if (feed) feed.style.overflowY = 'hidden';
+  const dragMoveRef = useRef(null);
+  const dragEndRef = useRef(null);
+  const touchMoveRef = useRef(null);
+  const touchEndRef = useRef(null);
+
+  const handleTouchStart = useCallback(() => {
+    if (hideTouchTimerRef.current) clearTimeout(hideTouchTimerRef.current);
+    setTouchShow(true);
+  }, []);
+
+  const handleTouchEndProgress = useCallback(() => {
+    hideTouchTimerRef.current = setTimeout(() => setTouchShow(false), 1500);
   }, []);
 
   const updateProgressFromEvent = useCallback((e) => {
-    const progressContainer = cardRef.current?.querySelector('.sv-progress-container');
-    if (!progressContainer) return;
-    const rect = progressContainer.getBoundingClientRect();
+    const track = cardRef.current?.querySelector('.sv-progress-track');
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setProgress(pct * 100);
     const v = videoRef.current;
@@ -214,6 +215,30 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
       setTimeDisplay(formatTime(t) + ' / ' + formatTime(v.duration));
     }
   }, []);
+
+  const startDrag = useCallback((clientX) => {
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    updateProgressFromEvent({ clientX });
+    document.addEventListener('mousemove', dragMoveRef.current);
+    document.addEventListener('mouseup', dragEndRef.current);
+    document.addEventListener('touchmove', touchMoveRef.current, { passive: false });
+    document.addEventListener('touchend', touchEndRef.current);
+    const feed = cardRef.current?.closest('.sv-feed');
+    if (feed) feed.style.overflowY = 'hidden';
+  }, [updateProgressFromEvent]);
+
+  const handleProgressMouseDown = useCallback((e) => {
+    e.stopPropagation();
+    startDrag(e.clientX);
+  }, [startDrag]);
+
+  const handleProgressTouchStart = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    handleTouchStart();
+    startDrag(e.touches[0].clientX);
+  }, [startDrag, handleTouchStart]);
 
   const handleDragMove = useCallback((e) => {
     if (isDraggingRef.current) updateProgressFromEvent(e);
@@ -240,22 +265,18 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
   const finishDrag = useCallback(() => {
     isDraggingRef.current = false;
     setIsDragging(false);
-    document.removeEventListener('mousemove', handleDragMove);
-    document.removeEventListener('mouseup', handleDragEnd);
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
+    document.removeEventListener('mousemove', dragMoveRef.current);
+    document.removeEventListener('mouseup', dragEndRef.current);
+    document.removeEventListener('touchmove', touchMoveRef.current);
+    document.removeEventListener('touchend', touchEndRef.current);
     const feed = cardRef.current?.closest('.sv-feed');
     if (feed) feed.style.overflowY = '';
-  }, [handleDragMove, handleDragEnd, handleTouchMove, handleTouchEnd]);
-
-  const handleTouchStart = useCallback(() => {
-    if (hideTouchTimerRef.current) clearTimeout(hideTouchTimerRef.current);
-    setTouchShow(true);
   }, []);
 
-  const handleTouchEndProgress = useCallback(() => {
-    hideTouchTimerRef.current = setTimeout(() => setTouchShow(false), 1500);
-  }, []);
+  dragMoveRef.current = handleDragMove;
+  dragEndRef.current = handleDragEnd;
+  touchMoveRef.current = handleTouchMove;
+  touchEndRef.current = handleTouchEnd;
 
   useEffect(() => {
     const v = videoRef.current;
@@ -467,19 +488,18 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
       <div className="sv-controls">
         <div
           className={`sv-progress-container ${isDragging ? 'dragging' : ''} ${touchShow ? 'touch-show' : ''}`}
-          onMouseDown={handleProgressDown}
-          onTouchStart={(e) => {
-            handleTouchStart();
-            handleProgressDown(e.touches[0]);
-          }}
+          onMouseDown={handleProgressMouseDown}
+          onTouchStart={handleProgressTouchStart}
           onTouchEnd={handleTouchEndProgress}
           onTouchCancel={handleTouchEndProgress}
         >
           <div className="sv-progress-time">{timeDisplay}</div>
-          <div className="sv-progress-bg"></div>
-          <div className="sv-progress-buffer" style={{ width: buffer + '%' }}></div>
-          <div className="sv-progress-played" style={{ width: progress + '%' }}></div>
-          <div className="sv-progress-handle" style={{ left: progress + '%' }}></div>
+          <div className="sv-progress-track">
+            <div className="sv-progress-bg"></div>
+            <div className="sv-progress-buffer" style={{ width: buffer + '%' }}></div>
+            <div className="sv-progress-played" style={{ width: progress + '%' }}></div>
+            <div className="sv-progress-handle" style={{ left: progress + '%' }}></div>
+          </div>
         </div>
       </div>
     </div>
