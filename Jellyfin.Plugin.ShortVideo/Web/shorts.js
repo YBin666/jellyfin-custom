@@ -24,7 +24,7 @@ window.ShortsModule = (function() {
             '#' + CONTAINER_ID + ' .' + P + '-actions .icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; border: 1px solid rgba(255,255,255,0.1); }',
             '#' + CONTAINER_ID + ' .' + P + '-actions .icon:active { transform: scale(0.9); background: rgba(255,255,255,0.25); }',
             '#' + CONTAINER_ID + ' .' + P + '-actions .icon.like.liked { color: #ff4757; background: rgba(255,71,87,0.2); }',
-            '#' + CONTAINER_ID + ' .' + P + '-actions .count { font-size: 11px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-weight: 500; }',
+            
             '#' + CONTAINER_ID + ' .' + P + '-caption { position: absolute; left: 16px; right: 72px; bottom: 30px; color: #fff; z-index: 10; }',
             '#' + CONTAINER_ID + ' .' + P + '-caption .title { font-weight: 600; font-size: 14px; margin-bottom: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.8); line-height: 1.4; }',
             '#' + CONTAINER_ID + ' .' + P + '-caption .meta { font-size: 12px; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }',
@@ -65,7 +65,18 @@ window.ShortsModule = (function() {
             // 底部 hub 栏（抖音风格，80px 高度）
             '#' + CONTAINER_ID + ' .' + P + '-hub { position: absolute; left: 0; right: 0; bottom: 0; height: 80px; display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 25; border-top: 1px solid rgba(255,255,255,0.08); padding-bottom: env(safe-area-inset-bottom); }',
             '#' + CONTAINER_ID + ' .' + P + '-hub .hub-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; padding: 10px 0; opacity: 0.6; transition: opacity 0.15s ease; background: none; border: none; font-family: inherit; }',
-            '#' + CONTAINER_ID + ' .' + P + '-hub .hub-btn.active { opacity: 1; }'
+            '#' + CONTAINER_ID + ' .' + P + '-hub .hub-btn.active { opacity: 1; }',
+            // 收藏列表面板（从右侧弹出）
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-panel { position: absolute; top: 0; left: 0; right: 0; bottom: 80px; background: #000; z-index: 30; transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-panel.show { transform: translateX(0); }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-header { position: sticky; top: 0; height: 56px; display: flex; align-items: center; padding: 0 16px; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.08); z-index: 10; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-back { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; color: #fff; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-title { flex: 1; text-align: center; font-size: 16px; font-weight: 600; color: #fff; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 16px; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-item { aspect-ratio: 9/16; background: #1a1a1a; border-radius: 8px; overflow: hidden; cursor: pointer; position: relative; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-item img { width: 100%; height: 100%; object-fit: cover; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-item .name { position: absolute; bottom: 0; left: 0; right: 0; padding: 8px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); font-size: 12px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+            '#' + CONTAINER_ID + ' .' + P + '-favorites-empty { color: #666; text-align: center; padding: 60px 20px; font-size: 14px; }'
         ].join('\n');
 
         function buildContainer() {
@@ -92,36 +103,47 @@ window.ShortsModule = (function() {
 
             container.appendChild(feed);
 
-            // 底部 hub 栏：回到首页、刷新
+            // 底部 hub 栏：首页、刷新、收藏
             var hub = document.createElement('div');
             hub.className = P + '-hub';
             var hubButtons = [
                 {
                     label: '首页',
-                    action: function() { goBackFromCustomRoute(); }
+                    action: null
                 },
                 {
                     label: '刷新',
-                    action: null // 刷新动作由 initPlayer 注入
+                    action: null
+                },
+                {
+                    label: '收藏',
+                    action: null
                 }
             ];
             hubButtons.forEach(function(btn) {
                 var el = document.createElement('button');
                 el.className = 'hub-btn';
                 el.textContent = btn.label;
-                if (btn.action) {
-                    el.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        btn.action();
-                    });
-                }
                 hub.appendChild(el);
             });
             container.appendChild(hub);
 
-            // 暴露 hub 按钮引用，供 initPlayer 注入动作
+            // 收藏列表面板
+            var favoritesPanel = document.createElement('div');
+            favoritesPanel.className = P + '-favorites-panel';
+            favoritesPanel.innerHTML =
+                '<div class="' + P + '-favorites-header">' +
+                    '<button class="' + P + '-favorites-back"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>' +
+                    '<div class="' + P + '-favorites-title">收藏</div>' +
+                    '<div style="width: 40px;"></div>' +
+                '</div>' +
+                '<div class="' + P + '-favorites-grid"></div>';
+            container.appendChild(favoritesPanel);
+
+            // 暴露引用
             container._hubButtons = hub.querySelectorAll('.hub-btn');
             container._hub = hub;
+            container._favoritesPanel = favoritesPanel;
 
             return container;
         }
@@ -283,7 +305,7 @@ window.ShortsModule = (function() {
                     '<div class="' + P + '-center-anim"></div>' +
                     '<div class="' + P + '-caption"><div class="title"></div><div class="meta"></div></div>' +
                     '<div class="' + P + '-actions">' +
-                      '<div class="action-item"><div class="icon like"><svg class="' + P + '-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div><span class="count like-count">0</span></div>' +
+                      '<div class="action-item"><div class="icon like"><svg class="' + P + '-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div></div>' +
                       '<div class="action-item"><div class="icon mute-icon"><svg class="' + P + '-lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg></div></div>' +
                     '</div>' +
                     '<div class="' + P + '-controls">' +
@@ -309,11 +331,9 @@ window.ShortsModule = (function() {
                 var hls = null;
                 var srcLoaded = false;
                 var isDragging = false;
-                var likeCount = Math.floor(Math.random() * 1000) + 100;
                 var isLiked = false;
 
                 var likeIcon = card.querySelector('.icon.like');
-                var likeCountEl = card.querySelector('.like-count');
                 var muteIcon = card.querySelector('.mute-icon');
                 var overlay = card.querySelector('.' + P + '-overlay');
                 var progressContainer = card.querySelector('.' + P + '-progress-container');
@@ -324,7 +344,7 @@ window.ShortsModule = (function() {
                 var progressTime = card.querySelector('.' + P + '-progress-time');
                 var centerAnim = card.querySelector('.' + P + '-center-anim');
 
-                likeCountEl.textContent = formatLikeCount(likeCount);
+                
 
                 function showLoading() { loaderEl.classList.add('show'); posterEl.classList.remove('hidden'); }
                 function hideLoading() { loaderEl.classList.remove('show'); posterEl.classList.add('hidden'); }
@@ -526,9 +546,8 @@ window.ShortsModule = (function() {
                     var newLiked = !isLiked;
                     // 先更新 UI，再调 API（乐观更新）
                     isLiked = newLiked;
-                    if (isLiked) { likeCount++; likeIcon.classList.add('liked'); }
-                    else { likeCount--; likeIcon.classList.remove('liked'); }
-                    likeCountEl.textContent = formatLikeCount(likeCount);
+                    if (isLiked) { likeIcon.classList.add('liked'); }
+                    else { likeIcon.classList.remove('liked'); }
 
                     // 调用 Jellyfin 收藏 API
                     toggleJellyfinFavorite(card.dataset.id, newLiked);
@@ -555,9 +574,8 @@ window.ShortsModule = (function() {
                             console.error('[ShortsModule] 收藏 API 失败:', r.status);
                             // 回滚 UI
                             isLiked = !favorite;
-                            if (isLiked) { likeCount++; likeIcon.classList.add('liked'); }
-                            else { likeCount--; likeIcon.classList.remove('liked'); }
-                            likeCountEl.textContent = formatLikeCount(likeCount);
+                            if (isLiked) { likeIcon.classList.add('liked'); }
+                            else { likeIcon.classList.remove('liked'); }
                         }
                     }).catch(function(e) {
                         console.error('[ShortsModule] 收藏 API 异常:', e);
@@ -578,7 +596,6 @@ window.ShortsModule = (function() {
                             if (data && data.UserData && data.UserData.IsFavorite) {
                                 isLiked = true;
                                 likeIcon.classList.add('liked');
-                                likeCountEl.textContent = formatLikeCount(likeCount + 1);
                             }
                         })
                         .catch(function(e) {});
@@ -788,10 +805,31 @@ window.ShortsModule = (function() {
                 return null;
             }
 
-            // 为 hub 的刷新按钮注入动作
+            function forceRefreshFeed() {
+                feed.innerHTML = '';
+                firstBatchLoaded = false;
+                isLoading = false;
+                loadBatch();
+            }
+
+            // 为 hub 的按钮注入动作
             var hubButtons = container._hubButtons;
             if (hubButtons && hubButtons.length >= 2) {
-                // 刷新按钮（索引 1）
+                // 首页按钮（索引 0）- 双击强制刷新视频流
+                var homeBtn = hubButtons[0];
+                var homeLastClickTime = 0;
+                homeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var now = Date.now();
+                    if (now - homeLastClickTime < 300) {
+                        forceRefreshFeed();
+                        homeLastClickTime = 0;
+                    } else {
+                        homeLastClickTime = now;
+                    }
+                });
+
+                // 刷新按钮（索引 1）- 刷新当前视频
                 hubButtons[1].addEventListener('click', function(e) {
                     e.preventDefault();
                     var card = getCurrentCard();
@@ -803,6 +841,99 @@ window.ShortsModule = (function() {
                             if (v) v.play().catch(function() {});
                         }, 100);
                     }
+                });
+
+                // 收藏按钮（索引 2）- 打开收藏列表
+                if (hubButtons.length >= 3) {
+                    hubButtons[2].addEventListener('click', function(e) {
+                        e.preventDefault();
+                        showFavoritesPanel();
+                    });
+                }
+            }
+
+            var favoritesPanel = container._favoritesPanel;
+
+            function toggleFavoritesPanel(show) {
+                if (favoritesPanel) {
+                    favoritesPanel.classList.toggle('show', show);
+                }
+            }
+
+            function showFavoritesPanel() {
+                toggleFavoritesPanel(true);
+                loadFavorites();
+            }
+
+            function hideFavoritesPanel() {
+                toggleFavoritesPanel(false);
+            }
+
+            function loadFavorites() {
+                var userId = getUserId();
+                if (!userId) {
+                    favoritesPanel.querySelector('.' + P + '-favorites-grid').innerHTML =
+                        '<div class="' + P + '-favorites-empty">无法获取用户信息</div>';
+                    return;
+                }
+
+                var url = BASE + '/Users/' + userId + '/Items?IsFavorite=true&Recursive=true&IncludeItemTypes=Video&Fields=BasicSyncInfo,PrimaryImageAspectRatio&api_key=' + encodeURIComponent(API_KEY);
+
+                fetch(url)
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var items = data.Items || [];
+                        var grid = favoritesPanel.querySelector('.' + P + '-favorites-grid');
+
+                        if (items.length === 0) {
+                            grid.innerHTML = '<div class="' + P + '-favorites-empty">暂无收藏内容</div>';
+                            return;
+                        }
+
+                        grid.innerHTML = '';
+                        items.forEach(function(item) {
+                            var el = document.createElement('div');
+                            el.className = P + '-favorites-item';
+                            el.innerHTML =
+                                '<img src="' + BASE + '/Items/' + item.Id + '/Images/Primary?fillHeight=320&fillWidth=180&quality=80" alt="' + (item.Name || '') + '">' +
+                                '<div class="name">' + (item.Name || '') + '</div>';
+                            el.addEventListener('click', function() {
+                                hideFavoritesPanel();
+                                playFavoriteItem(item);
+                            });
+                            grid.appendChild(el);
+                        });
+                    })
+                    .catch(function(e) {
+                        console.error('[ShortsModule] 加载收藏列表失败:', e);
+                        favoritesPanel.querySelector('.' + P + '-favorites-grid').innerHTML =
+                            '<div class="' + P + '-favorites-empty">加载失败</div>';
+                    });
+            }
+
+            function playFavoriteItem(item) {
+                feed.innerHTML = '';
+                firstBatchLoaded = false;
+                isLoading = false;
+                appendCard({
+                    id: item.Id,
+                    name: item.Name,
+                    streamUrl: '/Videos/' + item.Id + '/stream?static=true',
+                    durationSeconds: item.RunTimeTicks ? item.RunTimeTicks / 10000000 : 0,
+                    videoCodec: '',
+                    audioCodec: '',
+                    container: ''
+                });
+                firstBatchLoaded = true;
+                setTimeout(function() { playVisible(); }, 200);
+            }
+
+            // 收藏面板返回按钮
+            var backBtn = favoritesPanel.querySelector('.' + P + '-favorites-back');
+            if (backBtn) {
+                backBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    hideFavoritesPanel();
                 });
             }
 

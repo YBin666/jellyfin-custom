@@ -1,5 +1,5 @@
 window.DiyModule = (function() {
-    var CONTAINER_ID = 'shortvideo-diy-view';
+    var CONTAINER_ID = 'diy-view';
 
     function buildContainer(goBack) {
         var container = document.createElement('div');

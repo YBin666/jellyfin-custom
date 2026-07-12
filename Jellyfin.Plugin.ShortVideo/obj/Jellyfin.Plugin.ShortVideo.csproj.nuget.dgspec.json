@@ -15,8 +15,7 @@
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\CodeFiles\\IdeaProject\\jellyfin-custom\\Jellyfin.Plugin.ShortVideo\\NuGet.Config",
-          "C:\\Users\\Yangb\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\Yangb\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
