@@ -7,11 +7,15 @@ import { registerRoute, initInfrastructure, goBackFromCustomRoute } from './comm
 function mountShorts() {
   const container = document.createElement('div');
   container.id = 'shortvideo-react-root';
-  container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9998;background:#000;';
+  container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100vh;height:100dvh;z-index:9998;background:#000;overflow:hidden;';
   document.body.appendChild(container);
 
   const reactRoot = document.getElementById('reactRoot');
   if (reactRoot) reactRoot.style.display = 'none';
+
+  document.body.style.paddingTop = '0';
+  document.body.style.paddingBottom = '0';
+  document.body.style.margin = '0';
 
   const root = createRoot(container);
   root.render(<ShortsPage />);

@@ -13,6 +13,9 @@ public static class SelfInjector
     private const string ScriptTag = InjectMarker + "\n" +
         "<script src=\"/ScriptHost/Inject.js\"></script>\n";
 
+    private const string IosMetaTags = "<!-- Jellyfin.ScriptHost iOS meta tags -->\n" +
+        "<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n";
+
     public static bool TryInject(IApplicationPaths appPaths, ILogger logger)
     {
         try
@@ -135,24 +138,55 @@ public static class SelfInjector
         var html = File.ReadAllText(indexPath, Encoding.UTF8);
         logger.LogInformation("ScriptHost Injector: index.html 大小 = {Bytes} 字节", html.Length);
 
-        if (html.Contains(InjectMarker, StringComparison.Ordinal))
-        {
-            logger.LogInformation("ScriptHost Injector: index.html 已包含注入标记，跳过");
-            return true;
-        }
+        var modified = html;
+        bool hasChanges = false;
 
-        logger.LogInformation("ScriptHost Injector: index.html 未注入，准备写入 script 标签...");
-        string modified;
-        var bodyTag = Regex.Match(html, "</body>", RegexOptions.IgnoreCase);
-        if (bodyTag.Success)
+        if (!modified.Contains("Jellyfin.ScriptHost iOS meta tags", StringComparison.Ordinal))
         {
-            logger.LogInformation("ScriptHost Injector: 找到 </body> 标签，位置 = {Index}", bodyTag.Index);
-            modified = html.Insert(bodyTag.Index, ScriptTag);
+            logger.LogInformation("ScriptHost Injector: 注入 iOS meta 标签...");
+            var headTag = Regex.Match(modified, "</head>", RegexOptions.IgnoreCase);
+            if (headTag.Success)
+            {
+                logger.LogInformation("ScriptHost Injector: 找到 </head> 标签，位置 = {Index}", headTag.Index);
+                modified = modified.Insert(headTag.Index, IosMetaTags);
+                hasChanges = true;
+            }
+            else
+            {
+                logger.LogWarning("ScriptHost Injector: 未找到 </head> 标签，跳过 iOS meta 注入");
+            }
         }
         else
         {
-            logger.LogWarning("ScriptHost Injector: 未找到 </body> 标签，追加到文件末尾");
-            modified = html + ScriptTag;
+            logger.LogInformation("ScriptHost Injector: index.html 已包含 iOS meta 标签，跳过");
+        }
+
+        if (!modified.Contains(InjectMarker, StringComparison.Ordinal))
+        {
+            logger.LogInformation("ScriptHost Injector: index.html 未注入 script，准备写入...");
+            var bodyTag = Regex.Match(modified, "</body>", RegexOptions.IgnoreCase);
+            if (bodyTag.Success)
+            {
+                logger.LogInformation("ScriptHost Injector: 找到 </body> 标签，位置 = {Index}", bodyTag.Index);
+                modified = modified.Insert(bodyTag.Index, ScriptTag);
+                hasChanges = true;
+            }
+            else
+            {
+                logger.LogWarning("ScriptHost Injector: 未找到 </body> 标签，追加到文件末尾");
+                modified = modified + ScriptTag;
+                hasChanges = true;
+            }
+        }
+        else
+        {
+            logger.LogInformation("ScriptHost Injector: index.html 已包含注入标记，跳过");
+        }
+
+        if (!hasChanges)
+        {
+            logger.LogInformation("ScriptHost Injector: 无需修改，index.html 已是最新");
+            return true;
         }
 
         var tmpPath = indexPath + ".scripthost.tmp";
@@ -162,7 +196,7 @@ public static class SelfInjector
         File.Copy(tmpPath, indexPath, overwrite: true);
         try { File.Delete(tmpPath); } catch { }
     
-        logger.LogInformation("ScriptHost Injector: 注入成功! script 标签已写入 {Path}", indexPath);
+        logger.LogInformation("ScriptHost Injector: 注入成功! 已写入 {Path}", indexPath);
         return true;
     }
 }

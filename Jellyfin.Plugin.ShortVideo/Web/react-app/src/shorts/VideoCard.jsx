@@ -422,8 +422,6 @@ export default function VideoCard({ item, globalMuted, onMuteToggle, onLikeChang
       className={`sv-card ${isPaused ? 'paused' : ''}`}
       onClick={handleCardClick}
     >
-      <div className="sv-top-gradient"></div>
-      <div className="sv-bottom-gradient"></div>
       <div
         className={`sv-poster ${isLoading ? '' : 'hidden'}`}
         style={{ backgroundImage: `url("${posterUrl}")` }}

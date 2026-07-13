@@ -196,11 +196,12 @@ function injectFabButton() {
   fabLink = document.createElement('a');
   fabLink.id = 'shortvideo-fab';
   fabLink.href = '#/shorts';
-  fabLink.textContent = '短视频';
+  fabLink.textContent = '刷视频';
   fabLink.style.cssText = [
     'position: fixed',
-    'right: 24px',
+    'left: 50%',
     'bottom: 24px',
+    'transform: translateX(-50%)',
     'padding: 12px 24px',
     'border-radius: 999px',
     'background: rgba(255,255,255,0.65)',
@@ -228,12 +229,12 @@ function injectFabButton() {
   fabLink.insertBefore(icon, fabLink.firstChild);
 
   fabLink.addEventListener('mouseenter', () => {
-    fabLink.style.transform = 'translateY(-2px)';
+    fabLink.style.transform = 'translateX(-50%) translateY(-2px)';
     fabLink.style.boxShadow = '0 8px 32px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.1)';
     fabLink.style.background = 'rgba(255,255,255,0.8)';
   });
   fabLink.addEventListener('mouseleave', () => {
-    fabLink.style.transform = 'translateY(0)';
+    fabLink.style.transform = 'translateX(-50%) translateY(0)';
     fabLink.style.boxShadow = '0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)';
     fabLink.style.background = 'rgba(255,255,255,0.65)';
   });

@@ -138,14 +138,8 @@ export default function ShortsPage() {
 
   const handleFavoritesClick = useCallback((e) => {
     e.preventDefault();
-    setShowFavorites(prev => {
-      if (prev) {
-        setActiveTab('home');
-      } else {
-        setActiveTab('favorites');
-      }
-      return !prev;
-    });
+    setShowFavorites(true);
+    setActiveTab('favorites');
   }, []);
 
   const handleMuteToggle = useCallback(() => {
@@ -214,19 +208,19 @@ export default function ShortsPage() {
 
       <div className="sv-hub">
         <button
-          className={`hub-btn ${activeTab === 'home' ? 'active' : ''}`}
+          className="hub-btn"
           onClick={handleHomeClick}
         >
-          首页
+          退出
         </button>
         <button
-          className={`hub-btn ${activeTab === 'refresh' ? 'active' : ''}`}
+          className="hub-btn"
           onClick={handleRefreshClick}
         >
           刷新
         </button>
         <button
-          className={`hub-btn ${activeTab === 'favorites' ? 'active' : ''}`}
+          className={`hub-btn ${showFavorites ? 'active' : ''}`}
           onClick={handleFavoritesClick}
         >
           收藏

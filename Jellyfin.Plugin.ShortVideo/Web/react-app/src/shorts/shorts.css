@@ -3,7 +3,8 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   z-index: 9998;
   background: #000;
   overflow: hidden;
@@ -20,8 +21,11 @@
 }
 
 .sv-feed {
-  width: 100%;
-  height: calc(100% - 80px);
+  position: absolute;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  bottom: calc(60px + env(safe-area-inset-bottom));
   overflow-y: scroll;
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
@@ -375,11 +379,12 @@
 }
 
 .sv-hub {
-  position: absolute;
-  left: 0;
+  position: fixed;
   right: 0;
   bottom: 0;
-  height: 80px;
+  left: 0;
+  height: calc(60px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -388,7 +393,6 @@
   -webkit-backdrop-filter: blur(20px);
   z-index: 25;
   border-top: 1px solid rgba(255,255,255,0.08);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .sv-hub .hub-btn {
@@ -417,7 +421,7 @@
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 60px;
   background: rgba(0,0,0,0.5);
   z-index: 29;
   opacity: 0;
@@ -434,7 +438,7 @@
   position: absolute;
   top: 0;
   right: 0;
-  bottom: 80px;
+  bottom: 60px;
   width: 85%;
   background: #000;
   z-index: 30;
@@ -442,6 +446,7 @@
   transition: transform 0.3s ease;
   overflow-y: auto;
   will-change: transform;
+  padding-top: env(safe-area-inset-top);
 }
 
 .sv-favorites-panel.show {
