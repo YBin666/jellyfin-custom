@@ -70,33 +70,6 @@ try {
         Write-Host "Removed meta.json cache" -ForegroundColor Gray
     }
 
-    # Inject iOS meta tag into jellyfin-web/index.html
-    Write-Host "`nInjecting iOS meta tag..." -ForegroundColor Yellow
-    $webDirs = @(
-        "C:\Program Files\Jellyfin\Server\jellyfin-web",
-        "C:\ProgramData\Jellyfin\Server\jellyfin-web",
-        "C:\Users\Yangb\AppData\Local\jellyfin\jellyfin-web"
-    )
-    foreach ($wd in $webDirs) {
-        $idx = Join-Path $wd "index.html"
-        if (Test-Path $idx) {
-            $content = Get-Content $idx -Raw -Encoding UTF8
-            if ($content -match "apple-mobile-web-app-status-bar-style") {
-                Write-Host "  iOS meta tag already present in $idx" -ForegroundColor Gray
-            } else {
-                $newContent = $content -replace '</head>', '<!-- Jellyfin.ScriptHost iOS meta tags -->`n<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`n</head>'
-                try {
-                    [System.IO.File]::WriteAllText($idx, $newContent, [System.Text.Encoding]::UTF8)
-                    Write-Host "  Injected iOS meta tag into $idx" -ForegroundColor Green
-                } catch {
-                    Write-Host "  WARNING: Cannot write to $idx (needs admin): $_" -ForegroundColor Yellow
-                    Write-Host "  Run script as Administrator or manually add the meta tag." -ForegroundColor Yellow
-                }
-            }
-            break
-        }
-    }
-
     Write-Host "`n=== Installation Complete ===" -ForegroundColor Green
     Write-Host "Start Jellyfin and navigate to http://localhost:8096" -ForegroundColor Cyan
 } catch {

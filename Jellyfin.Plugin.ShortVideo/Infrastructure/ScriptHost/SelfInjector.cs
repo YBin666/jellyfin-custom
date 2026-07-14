@@ -13,9 +13,6 @@ public static class SelfInjector
     private const string ScriptTag = InjectMarker + "\n" +
         "<script src=\"/ScriptHost/Inject.js\"></script>\n";
 
-    private const string IosMetaTags = "<!-- Jellyfin.ScriptHost iOS meta tags -->\n" +
-        "<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n";
-
     public static bool TryInject(IApplicationPaths appPaths, ILogger logger)
     {
         try
@@ -140,26 +137,6 @@ public static class SelfInjector
 
         var modified = html;
         bool hasChanges = false;
-
-        if (!modified.Contains("Jellyfin.ScriptHost iOS meta tags", StringComparison.Ordinal))
-        {
-            logger.LogInformation("ScriptHost Injector: 注入 iOS meta 标签...");
-            var headTag = Regex.Match(modified, "</head>", RegexOptions.IgnoreCase);
-            if (headTag.Success)
-            {
-                logger.LogInformation("ScriptHost Injector: 找到 </head> 标签，位置 = {Index}", headTag.Index);
-                modified = modified.Insert(headTag.Index, IosMetaTags);
-                hasChanges = true;
-            }
-            else
-            {
-                logger.LogWarning("ScriptHost Injector: 未找到 </head> 标签，跳过 iOS meta 注入");
-            }
-        }
-        else
-        {
-            logger.LogInformation("ScriptHost Injector: index.html 已包含 iOS meta 标签，跳过");
-        }
 
         if (!modified.Contains(InjectMarker, StringComparison.Ordinal))
         {
