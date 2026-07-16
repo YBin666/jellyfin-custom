@@ -125,13 +125,13 @@ jobs:
 
           echo "Downloading ${FU_URL} ..."
           curl -sL -o "/tmp/${FU_PKG}" "${FU_URL}"
-          FU_SHA1=$(sha1sum "/tmp/${FU_PKG}" | awk '{print $1}')
+          FU_SHA1=$(md5sum "/tmp/${FU_PKG}" | awk '{print $1}')
           echo "fu_sha1=${FU_SHA1}"
           echo "fu_sha1=${FU_SHA1}" >> $GITHUB_OUTPUT
 
           echo "Downloading ${SV_URL} ..."
           curl -sL -o "/tmp/${SV_PKG}" "${SV_URL}"
-          SV_SHA1=$(sha1sum "/tmp/${SV_PKG}" | awk '{print $1}')
+          SV_SHA1=$(md5sum "/tmp/${SV_PKG}" | awk '{print $1}')
           echo "sv_sha1=${SV_SHA1}"
           echo "sv_sha1=${SV_SHA1}" >> $GITHUB_OUTPUT
 

@@ -12,7 +12,7 @@
         "changelog": "版本 0.2.0",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.2.0/jellyfin-plugin-fileupload_v0.2.0.zip",
-        "checksum": "e97535dfb5edb66362e2e52c75ab3a8c2bd7bff4",
+        "checksum": "56ff27dcf4cc673bed83d84b31f2a32c",
         "timestamp": "2026-07-16T17:25:37Z"
       }
     ]
@@ -30,7 +30,7 @@
         "changelog": "版本 1.0.0.0",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.2.0/jellyfin-plugin-shortvideo_v1.0.0.0.zip",
-        "checksum": "773b03cfa30cb49a1472dc903aabc2e12fa8dde6",
+        "checksum": "25d44d7400ba2acad101bf2218524481",
         "timestamp": "2026-07-16T17:25:37Z"
       }
     ]
