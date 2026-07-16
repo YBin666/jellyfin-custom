@@ -1,0 +1,199 @@
+name: Build and Release Plugins
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ==================== FileUpload ====================
+      - name: Build FileUpload
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          dotnet publish Jellyfin.Plugin.FileUpload/Jellyfin.Plugin.FileUpload.csproj \
+            -c Release \
+            -p:Version=${VERSION} \
+            -o artifacts-fileupload
+
+      - name: Package FileUpload
+        id: pkg_fileupload
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG_NAME="jellyfin-plugin-fileupload_v${VERSION}.zip"
+          mkdir -p package-fileupload
+          cp artifacts-fileupload/Jellyfin.Plugin.FileUpload.dll package-fileupload/
+          cp artifacts-fileupload/Jellyfin.Plugin.FileUpload.pdb package-fileupload/
+          cp Jellyfin.Plugin.FileUpload/build.yaml package-fileupload/
+          cd package-fileupload && zip -r "../${PKG_NAME}" .
+          cd ..
+          SHA1=$(sha1sum "${PKG_NAME}" | awk '{print $1}')
+          echo "pkg_name=${PKG_NAME}" >> $GITHUB_OUTPUT
+          echo "sha1=${SHA1}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      # ==================== ShortVideo ====================
+      - name: Read ShortVideo version
+        id: sv_version
+        run: |
+          SV_VERSION=$(grep -oP '<Version>\K[^<]+' Jellyfin.Plugin.ShortVideo/Jellyfin.Plugin.ShortVideo.csproj)
+          echo "version=${SV_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build ShortVideo frontend
+        run: |
+          cd Jellyfin.Plugin.ShortVideo/Web/react-app
+          npm install
+          npx vite build
+
+      - name: Build ShortVideo backend
+        run: |
+          dotnet publish Jellyfin.Plugin.ShortVideo/Jellyfin.Plugin.ShortVideo.csproj \
+            -c Release \
+            -o artifacts-shortvideo
+
+      - name: Package ShortVideo
+        id: pkg_shortvideo
+        run: |
+          SV_VERSION="${{ steps.sv_version.outputs.version }}"
+          PKG_NAME="jellyfin-plugin-shortvideo_v${SV_VERSION}.zip"
+          mkdir -p package-shortvideo
+          cp artifacts-shortvideo/Jellyfin.Plugin.ShortVideo.dll package-shortvideo/
+          cp artifacts-shortvideo/Jellyfin.Plugin.ShortVideo.pdb package-shortvideo/
+          cp Jellyfin.Plugin.ShortVideo/build.yaml package-shortvideo/
+          cd package-shortvideo && zip -r "../${PKG_NAME}" .
+          cd ..
+          SHA1=$(sha1sum "${PKG_NAME}" | awk '{print $1}')
+          echo "pkg_name=${PKG_NAME}" >> $GITHUB_OUTPUT
+          echo "sha1=${SHA1}" >> $GITHUB_OUTPUT
+          echo "version=${SV_VERSION}" >> $GITHUB_OUTPUT
+
+      # ==================== Upload artifacts ====================
+      - name: Upload FileUpload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-plugin-fileupload
+          path: ${{ steps.pkg_fileupload.outputs.pkg_name }}
+
+      - name: Upload ShortVideo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-plugin-shortvideo
+          path: ${{ steps.pkg_shortvideo.outputs.pkg_name }}
+
+      # ==================== Create Release ====================
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.pkg_fileupload.outputs.pkg_name }}
+            ${{ steps.pkg_shortvideo.outputs.pkg_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+
+      # ==================== Update manifest.json ====================
+      - name: Update manifest.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          FU_VERSION="${{ steps.pkg_fileupload.outputs.version }}"
+          FU_SHA1="${{ steps.pkg_fileupload.outputs.sha1 }}"
+          FU_PKG="${{ steps.pkg_fileupload.outputs.pkg_name }}"
+          SV_VERSION="${{ steps.pkg_shortvideo.outputs.version }}"
+          SV_SHA1="${{ steps.pkg_shortvideo.outputs.sha1 }}"
+          SV_PKG="${{ steps.pkg_shortvideo.outputs.pkg_name }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          FU_URL="https://github.com/YBin666/jellyfin-custom/releases/download/v${TAG_VERSION}/${FU_PKG}"
+          SV_URL="https://github.com/YBin666/jellyfin-custom/releases/download/v${TAG_VERSION}/${SV_PKG}"
+
+          python3 <<EOF
+          import json
+
+          with open('manifest.json', 'r', encoding='utf-8') as f:
+              data = json.load(f)
+
+          timestamp = "${TIMESTAMP}"
+          tag_version = "${TAG_VERSION}"
+
+          def normalize_version(v):
+              """补齐为 4 段版本号，如 0.1.0 -> 0.1.0.0"""
+              parts = v.split('.')
+              while len(parts) < 4:
+                  parts.append('0')
+              return '.'.join(parts)
+
+          fu_ver = normalize_version("${FU_VERSION}")
+          sv_ver = normalize_version("${SV_VERSION}")
+
+          # 更新 FileUpload
+          fu_new = {
+              "version": fu_ver,
+              "changelog": f"版本 {tag_version}",
+              "targetAbi": "10.11.0.0",
+              "sourceUrl": "${FU_URL}",
+              "checksum": "${FU_SHA1}",
+              "timestamp": timestamp
+          }
+          for plugin in data:
+              if plugin["guid"] == "e8b1c4d7-3a5e-4f8a-9c2b-6d7e8f9a0b1c":
+                  versions = [v for v in plugin["versions"] if v["version"] != fu_ver]
+                  versions.insert(0, fu_new)
+                  plugin["versions"] = versions
+                  break
+
+          # 更新 ShortVideo
+          sv_new = {
+              "version": sv_ver,
+              "changelog": f"版本 {sv_ver}",
+              "targetAbi": "10.11.0.0",
+              "sourceUrl": "${SV_URL}",
+              "checksum": "${SV_SHA1}",
+              "timestamp": timestamp
+          }
+          found = False
+          for plugin in data:
+              if plugin["guid"] == "7f3a9c2e-1b4d-4e6a-8f0b-2c5d7e9a1b3f":
+                  versions = [v for v in plugin["versions"] if v["version"] != sv_ver]
+                  versions.insert(0, sv_new)
+                  plugin["versions"] = versions
+                  found = True
+                  break
+          if not found:
+              data.append({
+                  "guid": "7f3a9c2e-1b4d-4e6a-8f0b-2c5d7e9a1b3f",
+                  "name": "ShortVideo",
+                  "description": "抖音式刷短视频入口，从 Jellyfin 媒体库中筛选短时长视频，提供竖屏全屏上下滑动播放体验",
+                  "overview": "在主界面加入短视频入口，进入竖屏全屏播放器，上下滑动切换下一条短视频。",
+                  "owner": "YBin666",
+                  "category": "General",
+                  "versions": [sv_new]
+              })
+
+          with open('manifest.json', 'w', encoding='utf-8') as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+          EOF
+
+      - name: Commit manifest update
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "chore: update manifest.json for v${GITHUB_REF_NAME#v}" || echo "No changes to commit"
+          git push

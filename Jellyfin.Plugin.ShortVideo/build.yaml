@@ -5,8 +5,8 @@
 Version: 1
 ManifestVersion: 1
 Name: ShortVideo
-Publisher: YourName
-Owner: YourName
+Publisher: YBin666
+Owner: YBin666
 Category: General
 Description: 抖音式刷短视频入口，从 Jellyfin 媒体库中筛选短时长视频，提供竖屏全屏上下滑动播放体验
 Overview: 在主界面加入"短视频"入口，进入竖屏全屏播放器，上下滑动切换下一条短视频。
@@ -18,4 +18,4 @@ Versions:
         - 提供 /ShortVideo/Page、/ShortVideo/Next、/ShortVideo/Stream/{id} 三个端点
         - 竖屏全屏滑动播放器页面
     TargetAbi: "10.11.0.0"
-    SourceUrl: https://github.com/YourName/jellyfin-plugin-shortvideo/releases/download/v1.0.0.0/jellyfin-plugin-shortvideo_v1.0.0.0.zip
+    SourceUrl: https://github.com/YBin666/jellyfin-custom/releases/download/v0.1.0/jellyfin-plugin-shortvideo_v1.0.0.0.zip
