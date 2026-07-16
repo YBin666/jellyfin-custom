@@ -110,8 +110,8 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
 
-      # ==================== Update manifest.json ====================
-      - name: Update manifest.json
+      # ==================== Update and commit manifest.json ====================
+      - name: Update and commit manifest.json
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
@@ -125,6 +125,7 @@ jobs:
           FU_URL="https://github.com/YBin666/jellyfin-custom/releases/download/v${TAG_VERSION}/${FU_PKG}"
           SV_URL="https://github.com/YBin666/jellyfin-custom/releases/download/v${TAG_VERSION}/${SV_PKG}"
 
+          # 1. 生成新的 manifest.json 内容（在当前 detached HEAD 工作区）
           python3 <<EOF
           import json
 
@@ -135,7 +136,6 @@ jobs:
           tag_version = "${TAG_VERSION}"
 
           def normalize_version(v):
-              """补齐为 4 段版本号，如 0.1.0 -> 0.1.0.0"""
               parts = v.split('.')
               while len(parts) < 4:
                   parts.append('0')
@@ -144,7 +144,6 @@ jobs:
           fu_ver = normalize_version("${FU_VERSION}")
           sv_ver = normalize_version("${SV_VERSION}")
 
-          # 更新 FileUpload
           fu_new = {
               "version": fu_ver,
               "changelog": f"版本 {tag_version}",
@@ -160,7 +159,6 @@ jobs:
                   plugin["versions"] = versions
                   break
 
-          # 更新 ShortVideo
           sv_new = {
               "version": sv_ver,
               "changelog": f"版本 {sv_ver}",
@@ -192,11 +190,19 @@ jobs:
               json.dump(data, f, ensure_ascii=False, indent=2)
           EOF
 
-      - name: Commit manifest update
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
+          # 2. 保存修改后的 manifest.json 到临时文件
+          cp manifest.json /tmp/manifest.json.new
+
+          # 3. 切换到 main 分支（解决 detached HEAD 问题）
+          git fetch origin main
+          git checkout main
+
+          # 4. 用新的 manifest.json 覆盖
+          cp /tmp/manifest.json.new manifest.json
+
+          # 5. 提交并推送
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add manifest.json
           git commit -m "chore: update manifest.json for v${GITHUB_REF_NAME#v}" || echo "No changes to commit"
-          git push
+          git push origin main
