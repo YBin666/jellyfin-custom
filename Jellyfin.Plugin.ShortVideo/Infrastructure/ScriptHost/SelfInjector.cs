@@ -91,7 +91,7 @@ public static class SelfInjector
 
         var candidates = new[]
         {
-            @"C:\ProgramData\Jellyfin\Server\jellyfin-web",
+            @"C:\Program Files\Jellyfin\Server\jellyfin-web",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "jellyfin", "web"),
             "/usr/share/jellyfin/web",
             "/usr/lib/jellyfin-web",

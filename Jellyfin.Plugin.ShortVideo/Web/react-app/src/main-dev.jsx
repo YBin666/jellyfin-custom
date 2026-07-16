@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import ShortsPage from './shorts/ShortsPage';
-import DiyPage from './diy/DiyPage';
-import { goBackFromCustomRoute } from './common/infrastructure';
 
 const DEV_STORAGE_KEY = 'jellyfin_dev_credentials';
 const TOOLBAR_COLLAPSED_KEY = 'jellyfin_dev_toolbar_collapsed';
@@ -24,7 +22,6 @@ function saveDevCredentials(creds) {
 }
 
 function DevApp() {
-  const [page, setPage] = useState('shorts');
   const [creds, setCreds] = useState(loadDevCredentials());
   const [status, setStatus] = useState('未连接');
   const [reloadKey, setReloadKey] = useState(0);
@@ -41,7 +38,6 @@ function DevApp() {
   }, [creds]);
 
   useEffect(() => {
-    const pageSelect = document.getElementById('pageSelect');
     const tokenInput = document.getElementById('tokenInput');
     const userIdInput = document.getElementById('userIdInput');
     const saveBtn = document.getElementById('saveBtn');
@@ -52,12 +48,11 @@ function DevApp() {
     const collapseToolbarBtn = document.getElementById('collapseToolbarBtn');
     const expandToolbarBtn = document.getElementById('expandToolbarBtn');
 
-    if (!pageSelect || !tokenInput || !userIdInput || !saveBtn || !reloadBtn) return;
+    if (!tokenInput || !userIdInput || !saveBtn || !reloadBtn) return;
 
     tokenInput.value = creds.token || '';
     userIdInput.value = creds.userId || '';
 
-    const onPageChange = (e) => setPage(e.target.value);
     const onSave = () => {
       const newCreds = {
         token: tokenInput.value.trim(),
@@ -69,11 +64,9 @@ function DevApp() {
     };
     const onReload = () => setReloadKey(k => k + 1);
 
-    pageSelect.addEventListener('change', onPageChange);
     saveBtn.addEventListener('click', onSave);
     reloadBtn.addEventListener('click', onReload);
 
-    // 工具栏折叠/展开
     let toolbarCollapsed = loadToolbarCollapsed();
     const applyToolbarState = () => {
       if (toolbarCollapsed) {
@@ -109,7 +102,6 @@ function DevApp() {
     updateStatus();
 
     return () => {
-      pageSelect.removeEventListener('change', onPageChange);
       saveBtn.removeEventListener('click', onSave);
       reloadBtn.removeEventListener('click', onReload);
       if (collapseToolbarBtn) collapseToolbarBtn.removeEventListener('click', onCollapseToolbar);
@@ -137,7 +129,7 @@ function DevApp() {
 
   return (
     <React.Fragment key={reloadKey}>
-      {page === 'shorts' ? <ShortsPage /> : <DiyPage onBack={goBackFromCustomRoute} />}
+      <ShortsPage />
     </React.Fragment>
   );
 }

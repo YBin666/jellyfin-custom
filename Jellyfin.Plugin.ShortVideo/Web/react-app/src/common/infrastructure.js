@@ -3,7 +3,6 @@ let originalTitle = document.title;
 let previousHash = null;
 let isNavigatingBack = false;
 let fabLink = null;
-let drawerObserver = null;
 
 function matchRoute(name) {
   return new RegExp('^#/' + name + '([/?]|$)').test(location.hash || '');
@@ -108,81 +107,6 @@ function handleRouteChange() {
   updateFabVisibility();
 }
 
-function createDrawerItem(id, href, iconChar, label) {
-  const item = document.createElement('a');
-  item.id = id;
-  item.href = href;
-  item.className = 'navMenuOption emby-button';
-  item.style.cssText = [
-    'display: flex',
-    'align-items: center',
-    'gap: 12px',
-    'padding: 12px 1.5em',
-    'color: inherit',
-    'text-decoration: none',
-    'font-size: inherit',
-    'font-weight: 400',
-    'cursor: pointer',
-    'width: 100%',
-    'box-sizing: border-box'
-  ].join(';');
-  item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.08)'; });
-  item.addEventListener('mouseleave', () => { item.style.background = ''; });
-
-  const iconEl = document.createElement('span');
-  iconEl.textContent = iconChar;
-  iconEl.style.cssText = 'width: 1.6em; text-align: center; opacity: 0.8;';
-
-  const labelEl = document.createElement('span');
-  labelEl.textContent = label;
-
-  item.appendChild(iconEl);
-  item.appendChild(labelEl);
-  return item;
-}
-
-function injectDrawerMenuItem() {
-  if (document.getElementById('shortvideo-drawer-item') && document.getElementById('shortvideo-diy-drawer-item')) return;
-
-  let drawer = document.querySelector('.mainDrawer');
-  if (!drawer) {
-    drawer = document.querySelector('.mainDrawerMenu');
-    if (!drawer) return;
-  }
-
-  const menuItems = drawer.querySelectorAll('a.itemAction, a.emby-button, button.itemAction, .navMenuOption, .listItem');
-  if (!menuItems || menuItems.length === 0) return;
-
-  let homeItem = null;
-  for (let i = 0; i < menuItems.length; i++) {
-    const text = menuItems[i].textContent.trim().toLowerCase();
-    const href = menuItems[i].getAttribute('href') || '';
-    if (text === '首页' || text === 'home' || href.indexOf('#/home') >= 0) {
-      homeItem = menuItems[i];
-      break;
-    }
-  }
-
-  const shortsItem = createDrawerItem('shortvideo-drawer-item', '#/shorts', '\u25B6', '短视频');
-  const diyItem = createDrawerItem('shortvideo-diy-drawer-item', '#/diy', '\u2728', 'DIY');
-
-  if (homeItem && homeItem.parentNode) {
-    homeItem.parentNode.insertBefore(diyItem, homeItem.nextSibling);
-    homeItem.parentNode.insertBefore(shortsItem, diyItem);
-  } else if (menuItems[0] && menuItems[0].parentNode) {
-    menuItems[0].parentNode.insertBefore(diyItem, menuItems[0].nextSibling);
-    menuItems[0].parentNode.insertBefore(shortsItem, diyItem);
-  }
-}
-
-function observeDrawer() {
-  if (drawerObserver) return;
-  drawerObserver = new MutationObserver(() => {
-    injectDrawerMenuItem();
-  });
-  drawerObserver.observe(document.body, { childList: true, subtree: true });
-}
-
 function updateFabVisibility() {
   if (!fabLink) return;
   fabLink.style.display = isAllowedRoute() ? 'inline-flex' : 'none';
@@ -244,7 +168,6 @@ function injectFabButton() {
 }
 
 export function initInfrastructure() {
-  // 开发模式下跳过Jellyfin DOM操作（抽屉菜单、悬浮按钮）
   const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
   if (IS_DEV) {
     console.log('[ShortVideo] 开发模式，跳过Jellyfin DOM注入');
@@ -253,13 +176,9 @@ export function initInfrastructure() {
 
   if (document.body) {
     injectFabButton();
-    injectDrawerMenuItem();
-    observeDrawer();
   } else {
     document.addEventListener('DOMContentLoaded', () => {
       injectFabButton();
-      injectDrawerMenuItem();
-      observeDrawer();
     });
   }
 
@@ -277,7 +196,6 @@ export function initInfrastructure() {
     } else {
       handleRouteChange();
     }
-    injectDrawerMenuItem();
   }, 2000);
 }
 

@@ -70,6 +70,46 @@ try {
         Write-Host "Removed meta.json cache" -ForegroundColor Gray
     }
 
+    # 4. Inject JS into index.html
+    Write-Host "`n[4/4] Injecting JS into index.html..." -ForegroundColor Yellow
+    $webDirs = @(
+        "C:\Program Files\Jellyfin\Server\jellyfin-web",
+        "C:\Users\Yangb\AppData\Local\jellyfin\jellyfin-web"
+    )
+    $injectMarker = '<!-- Jellyfin.ScriptHost injected -->'
+    $scriptTag = $injectMarker + "`n<script src=`"/ScriptHost/Inject.js`"></script>`n"
+    $injected = $false
+    
+    foreach ($wd in $webDirs) {
+        $idx = Join-Path $wd "index.html"
+        if (Test-Path $idx) {
+            Write-Host "Found index.html: $idx" -ForegroundColor Gray
+            
+            $content = Get-Content $idx -Raw -Encoding UTF8
+            
+            if ($content.Contains($injectMarker)) {
+                Write-Host "Removing old injection..." -ForegroundColor Gray
+                $content = $content -replace [regex]::Escape($scriptTag), ''
+            }
+            
+            $newContent = $content -replace '</body>', ($scriptTag + '</body>')
+            
+            try {
+                [System.IO.File]::WriteAllText($idx, $newContent, [System.Text.Encoding]::UTF8)
+                Write-Host "SUCCESS: Injected JS into $idx" -ForegroundColor Green
+                $injected = $true
+            } catch {
+                Write-Host "WARNING: Cannot write to $idx (needs admin): $_" -ForegroundColor Yellow
+            }
+            break
+        }
+    }
+    
+    if (-not $injected) {
+        Write-Host "WARNING: Could not inject JS into any index.html" -ForegroundColor Yellow
+        Write-Host "Please run this script as Administrator" -ForegroundColor Yellow
+    }
+
     Write-Host "`n=== Installation Complete ===" -ForegroundColor Green
     Write-Host "Start Jellyfin and navigate to http://localhost:8096" -ForegroundColor Cyan
 } catch {
