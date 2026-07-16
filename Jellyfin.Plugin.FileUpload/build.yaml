@@ -1,0 +1,22 @@
+# Jellyfin 插件构建元数据
+# 详见 https://github.com/jellyfin/jellyfin-plugin-template
+
+--- !Api
+Version: 1
+ManifestVersion: 1
+Name: FileUpload
+Publisher: YourName
+Owner: YourName
+Category: General
+Description: 从 Jellyfin 配置页直接上传文件到指定的媒体库目录白名单，支持大文件分片、拖拽、批量上传，上传后自动触发媒体库扫描。
+Overview: 在插件配置页提供文件上传区域，把文件写入预先配置的目录白名单，并自动触发对应媒体库扫描入库。
+Versions:
+  - Version: "1.0.0.0"
+    Changelog: |2-
+      首个版本：最小可用
+        - 目录白名单配置
+        - 多文件批量上传、拖拽上传、上传进度显示
+        - 大文件分片上传
+        - 上传完成后自动触发媒体库扫描
+    TargetAbi: "10.11.0.0"
+    SourceUrl: https://github.com/YourName/jellyfin-plugin-fileupload/releases/download/v1.0.0.0/jellyfin-plugin-fileupload_v1.0.0.0.zip

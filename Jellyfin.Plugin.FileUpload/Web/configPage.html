@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>FileUpload</title>
+</head>
+<body>
+    <div id="FileUploadConfigPage"
+         data-role="page"
+         class="page type-interior pluginConfigurationPage">
+
+        <div data-role="content">
+            <div class="content-primary">
+
+                <h2 style="margin:0 0 16px;">文件上传</h2>
+
+                <!-- 配置区 -->
+                <div style="margin-bottom:20px; padding:12px 16px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:6px;">
+                    <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
+                        <div style="flex:1; min-width:150px;">
+                            <label style="display:block;margin:0 0 4px;color:#aaa;font-size:13px;">单文件上限（MB，0=不限）</label>
+                            <input type="number" id="maxSizeInput" min="0" value="0" style="width:100%;padding:6px 8px;background:#0a0a0a;border:1px solid #333;border-radius:4px;color:#ddd;font-size:14px;" />
+                        </div>
+                        <div style="flex:1; min-width:150px;">
+                            <label style="display:block;margin:0 0 4px;color:#aaa;font-size:13px;">分片大小（MB）</label>
+                            <input type="number" id="chunkSizeInput" min="1" value="5" style="width:100%;padding:6px 8px;background:#0a0a0a;border:1px solid #333;border-radius:4px;color:#ddd;font-size:14px;" />
+                        </div>
+                        <div style="flex:1; min-width:150px;">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:18px;">
+                                <input type="checkbox" id="autoScanInput" checked style="width:16px;height:16px;" />
+                                <span style="font-size:13px;">自动扫描媒体库</span>
+                            </label>
+                        </div>
+                        <div style="flex:0 0 auto; margin-top:12px;">
+                            <button type="button" onclick="FileUploadUI.saveConfig()" style="padding:6px 16px;background:#00a4dc;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">保存配置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 选择媒体库 -->
+                <div style="margin-bottom: 16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="color:#aaa;font-size:13px;margin:0;">选择媒体库</label>
+                        <button type="button" onclick="FileUploadUI.loadLibraries()" style="padding:4px 10px;font-size:12px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer;">刷新列表</button>
+                    </div>
+                    <select id="librarySelect" onchange="FileUploadUI.onLibraryChange()" style="width:100%;padding:8px 10px;background:#0a0a0a;border:1px solid #333;border-radius:4px;color:#ddd;font-size:14px;">
+                        <option value="">点击"刷新列表"加载媒体库</option>
+                    </select>
+                    <div id="libError" style="color:#d33;font-size:12px;margin-top:4px;display:none;"></div>
+                </div>
+
+                <!-- 目录浏览 -->
+                <div id="browseSection" style="margin-bottom: 16px; display:none;">
+                    <label style="display:block;margin:0 0 4px;color:#aaa;font-size:13px;">选择目标目录</label>
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                        <button type="button" id="parentDirBtn" onclick="FileUploadUI.goParent()" style="padding:6px 12px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;display:none;">上一级</button>
+                        <div id="currentPath" style="flex:1; padding:6px 10px; background:#0a0a0a; border:1px solid #333; border-radius:4px; color:#00a4dc; font-size:13px; word-break:break-all;"></div>
+                    </div>
+                    <div id="dirGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:6px; max-height:200px; overflow-y:auto; margin-bottom:8px;"></div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" id="selectCurrentBtn" onclick="FileUploadUI.selectCurrentDir()" style="padding:6px 16px;background:#2d8a2d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">选此目录为上传目标</button>
+                    </div>
+                </div>
+
+                <!-- 已选目标 -->
+                <div id="selectedTarget" style="margin-bottom: 16px; display:none; padding:10px 14px; background:rgba(0,164,220,0.08); border:1px solid rgba(0,164,220,0.3); border-radius:4px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="color:#aaa;font-size:12px;">上传到：</span>
+                            <span id="selectedPath" style="color:#00a4dc;font-size:14px;word-break:break-all;"></span>
+                        </div>
+                        <button type="button" onclick="FileUploadUI.clearTarget()" style="padding:4px 10px;font-size:12px;background:#d33;color:#fff;border:none;border-radius:4px;cursor:pointer;">取消</button>
+                    </div>
+                </div>
+
+                <!-- 拖拽上传 -->
+                <div id="dropZone" style="border: 2px dashed #444; border-radius: 8px; padding: 40px 20px; text-align: center; color: #888; cursor: pointer; transition: all 0.2s; margin-bottom: 12px;">
+                    <div>拖拽文件到这里，或点击选择文件</div>
+                    <div style="font-size:12px; margin-top:6px;">支持多文件批量上传</div>
+                </div>
+                <input type="file" id="fileInput" multiple style="display:none" />
+
+                <div id="fileList" style="margin-bottom: 12px;"></div>
+
+                <div style="display:flex; gap:8px;">
+                    <button type="button" id="uploadAllBtn" onclick="FileUploadUI.uploadAll()" disabled style="flex:1;padding:8px 16px;background:#00a4dc;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">开始上传</button>
+                    <button type="button" id="clearListBtn" onclick="FileUploadUI.clearList()" style="flex:1;padding:8px 16px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">清空列表</button>
+                </div>
+
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var FileUploadConfig = { pluginUniqueId: 'e8b1c4d7-3a5e-4f8a-9c2b-6d7e8f9a0b1c' };
+
+            var FileUploadUI = (function () {
+                'use strict';
+
+                function $(id) { return document.getElementById(id); }
+
+                var pendingFiles = [];
+                var isUploading = false;
+                var configCache = null;
+                var libraries = [];
+                var currentBrowsePath = null;
+                var parentBrowsePath = null;
+                // 浏览历史栈，存 { parentId, path }，用于"返回上一级"
+                var browseStack = [];
+                var selectedTargetDir = null;
+
+                function formatSize(bytes) {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                    if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+                    return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+                }
+
+                function showToast(msg, type) {
+                    var toast = document.createElement('div');
+                    toast.textContent = msg;
+                    toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 18px;border-radius:6px;color:#fff;font-size:14px;z-index:9999;transition:all 0.3s;opacity:0;transform:translateX(20px);';
+                    if (type === 'success') toast.style.background = '#2d8a2d';
+                    else if (type === 'error') toast.style.background = '#d33';
+                    else toast.style.background = '#00a4dc';
+                    document.body.appendChild(toast);
+                    requestAnimationFrame(function () { toast.style.opacity = '1'; toast.style.transform = 'translateX(0)'; });
+                    setTimeout(function () { toast.style.opacity = '0'; toast.style.transform = 'translateX(20px)'; setTimeout(function () { toast.remove(); }, 300); }, 3000);
+                }
+
+                function loadConfig() {
+                    ApiClient.getPluginConfiguration(FileUploadConfig.pluginUniqueId).then(function (config) {
+                        configCache = config;
+                        $('maxSizeInput').value = config.MaxFileSizeMb || 0;
+                        $('chunkSizeInput').value = config.ChunkSizeMb || 5;
+                        $('autoScanInput').checked = !!config.AutoScanAfterUpload;
+                    });
+                }
+
+                function saveConfig() {
+                    ApiClient.getPluginConfiguration(FileUploadConfig.pluginUniqueId).then(function (config) {
+                        config.MaxFileSizeMb = parseInt($('maxSizeInput').value, 10) || 0;
+                        config.ChunkSizeMb = parseInt($('chunkSizeInput').value, 10) || 5;
+                        config.AutoScanAfterUpload = $('autoScanInput').checked;
+                        return ApiClient.updatePluginConfiguration(FileUploadConfig.pluginUniqueId, config);
+                    }).then(function () {
+                        showToast('配置已保存', 'success');
+                        return ApiClient.getPluginConfiguration(FileUploadConfig.pluginUniqueId).then(function (cfg) { configCache = cfg; });
+                    }).catch(function (err) { showToast('保存失败：' + (err.message || err), 'error'); });
+                }
+
+                function getToken() {
+                    try {
+                        if (typeof ApiClient !== 'undefined' && ApiClient.accessToken) {
+                            return ApiClient.accessToken();
+                        }
+                    } catch (e) {}
+                    try {
+                        var cred = localStorage.getItem('jellyfin_credentials');
+                        if (cred) {
+                            var obj = JSON.parse(cred);
+                            var servers = obj.Servers || obj.servers || [];
+                            for (var i = 0; i < servers.length; i++) {
+                                if (servers[i].AccessToken) return servers[i].AccessToken;
+                            }
+                        }
+                    } catch (e) {}
+                    return '';
+                }
+
+                function apiUrl(path) {
+                    try {
+                        if (typeof ApiClient !== 'undefined' && ApiClient.getUrl) {
+                            return ApiClient.getUrl(path);
+                        }
+                    } catch (e) {}
+                    return path;
+                }
+
+                // 统一的 fetch 封装，自动带 token
+                function apiFetch(path, options) {
+                    var token = getToken();
+                    options = options || {};
+                    options.headers = options.headers || {};
+                    options.headers['X-Emby-Token'] = token;
+                    options.headers['Accept'] = 'application/json';
+                    var url = apiUrl(path);
+                    if (url.indexOf('api_key=') < 0) {
+                        url = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'api_key=' + encodeURIComponent(token);
+                    }
+                    return fetch(url, options).then(function (resp) {
+                        if (!resp.ok) {
+                            return resp.text().then(function (txt) {
+                                throw new Error('HTTP ' + resp.status + ' ' + resp.statusText + (txt ? (': ' + txt) : ''));
+                            });
+                        }
+                        var ct = resp.headers.get('content-type') || '';
+                        if (ct.indexOf('application/json') >= 0) return resp.json();
+                        return resp.text();
+                    });
+                }
+
+                // POST JSON
+                function apiPostJson(path, obj) {
+                    return apiFetch(path, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(obj)
+                    });
+                }
+
+                // POST FormData（分片上传用）
+                function apiPostForm(path, form) {
+                    return apiFetch(path, {
+                        method: 'POST',
+                        body: form
+                        // 不设 Content-Type，让 fetch 自动加上 multipart boundary
+                    });
+                }
+
+                // DELETE
+                function apiDelete(path) {
+                    return apiFetch(path, { method: 'DELETE' });
+                }
+
+                function loadLibraries() {
+                    var errEl = $('libError');
+                    errEl.style.display = 'none';
+                    errEl.textContent = '';
+                    var token = getToken();
+                    var baseUrl = apiUrl('/Library/VirtualFolders');
+                    var url = baseUrl + (baseUrl.indexOf('?') >= 0 ? '&' : '?') + 'api_key=' + encodeURIComponent(token);
+                    fetch(url, {
+                        headers: {
+                            'X-Emby-Token': token,
+                            'Accept': 'application/json'
+                        }
+                    }).then(function (resp) {
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                        return resp.json();
+                    }).then(function (data) {
+                        if (typeof console !== 'undefined') console.log('FileUpload VirtualFolders raw:', data);
+                        // data 已经是数组
+                        var arr = data;
+                        if (!Array.isArray(arr)) {
+                            if (Array.isArray(arr.Items)) arr = arr.Items;
+                            else if (Array.isArray(arr.items)) arr = arr.items;
+                            else arr = [];
+                        }
+                        libraries = arr;
+                        if (typeof console !== 'undefined') console.log('FileUpload libraries:', libraries);
+                        var sel = $('librarySelect');
+                        sel.innerHTML = '';
+                        if (libraries.length === 0) {
+                            sel.innerHTML = '<option value="">（未找到媒体库，请先在 Jellyfin 中添加）</option>';
+                            errEl.style.display = 'block';
+                            errEl.textContent = '未找到任何媒体库。请检查 Jellyfin 是否已配置媒体库。';
+                            return;
+                        }
+                        sel.innerHTML = '<option value="">-- 请选择媒体库 --</option>';
+                        libraries.forEach(function (lib) {
+                            var paths = lib.Locations || lib.locations;
+                            if (!Array.isArray(paths)) {
+                                if (lib.Path) paths = [lib.Path];
+                                else if (lib.path) paths = [lib.path];
+                                else paths = [];
+                            }
+                            var name = lib.Name || lib.name || '未知';
+                            var itemId = lib.ItemId || lib.itemId || lib.Id || lib.id || '';
+                            paths.forEach(function (p, idx) {
+                                var opt = document.createElement('option');
+                                // value 存 ItemId|Path，用 | 分隔
+                                opt.value = itemId + '|' + p;
+                                opt.textContent = name + '  (' + p + ')';
+                                opt.dataset.libName = name;
+                                opt.dataset.itemId = itemId;
+                                opt.dataset.path = p;
+                                sel.appendChild(opt);
+                            });
+                        });
+                    }).catch(function (err) {
+                        var msg = '获取媒体库失败：' + (err.message || err);
+                        showToast(msg, 'error');
+                        errEl.style.display = 'block';
+                        errEl.textContent = msg;
+                        var sel = $('librarySelect');
+                        sel.innerHTML = '<option value="">（加载失败，点击"刷新列表"重试）</option>';
+                    });
+                }
+
+                function onLibraryChange() {
+                    var sel = $('librarySelect');
+                    if (!sel.value) { $('browseSection').style.display = 'none'; return; }
+                    var itemId = sel.selectedOptions[0].dataset.itemId;
+                    var path = sel.selectedOptions[0].dataset.path;
+                    if (!itemId) { showToast('该媒体库没有 ItemId，无法浏览', 'error'); return; }
+                    // 切换媒体库时清空历史栈
+                    browseStack = [];
+                    browseItems(itemId, path, false);
+                }
+
+                // 用 Items 接口查询子文件夹
+                // pushStack: 是否把"调用前的当前目录"压入历史栈（进入子目录时为 true，返回上一级/切换媒体库时为 false）
+                function browseItems(parentId, currentPath, pushStack) {
+                    // 进入子目录前，先把当前层级压入栈（保存"从哪里来"）
+                    if (pushStack && currentBrowsePath) {
+                        var prevId = $('browseSection').dataset.parentId;
+                        if (prevId) {
+                            browseStack.push({ parentId: prevId, path: currentBrowsePath });
+                        }
+                    }
+
+                    var token = getToken();
+                    var params = 'parentId=' + encodeURIComponent(parentId) +
+                                 '&recursive=false' +
+                                 '&fields=Path' +
+                                 '&api_key=' + encodeURIComponent(token);
+                    var url = apiUrl('/Items') + '?' + params;
+                    fetch(url, {
+                        headers: { 'X-Emby-Token': token, 'Accept': 'application/json' }
+                    }).then(function (resp) {
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+                        return resp.json();
+                    }).then(function (data) {
+                        if (typeof console !== 'undefined') console.log('FileUpload Items:', data);
+                        var items = data.Items || data.items || [];
+                        // 只显示文件夹类型的项
+                        var folders = items.filter(function (it) {
+                            var t = it.Type || it.type || '';
+                            return t.indexOf('Folder') >= 0 || t === 'CollectionFolder' || t === 'BasePluginFolder';
+                        });
+
+                        currentBrowsePath = currentPath;
+                        $('browseSection').style.display = 'block';
+                        $('currentPath').textContent = currentPath;
+                        // 保存当前 parentId 和 path 用于"选此目录"
+                        $('browseSection').dataset.parentId = parentId;
+                        $('browseSection').dataset.currentPath = currentPath;
+
+                        // "上一级"按钮：栈非空才显示
+                        var parentDirBtn = $('parentDirBtn');
+                        parentDirBtn.style.display = browseStack.length > 0 ? 'inline-block' : 'none';
+
+                        var grid = $('dirGrid');
+                        grid.innerHTML = '';
+                        if (folders.length === 0) {
+                            grid.innerHTML = '<div style="grid-column:1/-1;color:#666;font-size:13px;padding:12px;text-align:center;">（此目录下没有子文件夹，可以直接点"选此目录为上传目标"）</div>';
+                        }
+                        folders.forEach(function (folder) {
+                            var btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.textContent = folder.Name || folder.name;
+                            var fPath = folder.Path || folder.path || '';
+                            btn.title = fPath;
+                            btn.style.cssText = 'text-align:left;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;color:#ddd;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                            btn.onmouseover = function () { btn.style.borderColor = '#00a4dc'; };
+                            btn.onmouseout = function () { btn.style.borderColor = 'rgba(255,255,255,0.1)'; };
+                            btn.onclick = function () {
+                                var fId = folder.Id || folder.id || folder.ItemId || folder.itemId;
+                                if (fId && fPath) {
+                                    // 进入子目录前，把当前层级压入栈
+                                    browseItems(fId, fPath, true);
+                                } else {
+                                    showToast('该项没有 Id 或 Path，无法浏览', 'error');
+                                }
+                            };
+                            grid.appendChild(btn);
+                        });
+                    }).catch(function (err) {
+                        showToast('查询目录失败：' + (err.message || err), 'error');
+                        $('browseSection').style.display = 'block';
+                        $('currentPath').textContent = currentPath;
+                        $('dirGrid').innerHTML = '<div style="grid-column:1/-1;color:#d33;font-size:13px;padding:12px;">加载失败：' + (err.message || err) + '</div>';
+                    });
+                }
+
+                function goParent() {
+                    if (browseStack.length === 0) return;
+                    // 弹出上一级的 parentId 和 path
+                    var prev = browseStack.pop();
+                    browseItems(prev.parentId, prev.path, false);
+                }
+
+                function selectCurrentDir() {
+                    var section = $('browseSection');
+                    var path = section.dataset.currentPath;
+                    if (!path) return;
+                    selectedTargetDir = path;
+                    $('selectedTarget').style.display = 'block';
+                    $('selectedPath').textContent = selectedTargetDir;
+                    updateUploadBtn();
+                }
+
+                function clearTarget() {
+                    selectedTargetDir = null;
+                    $('selectedTarget').style.display = 'none';
+                    updateUploadBtn();
+                }
+
+                function addFiles(files) {
+                    for (var i = 0; i < files.length; i++) {
+                        pendingFiles.push({ file: files[i], status: 'pending', progress: 0, uploadId: null, error: null });
+                    }
+                    renderFileList();
+                    updateUploadBtn();
+                }
+
+                function statusText(item) {
+                    switch (item.status) {
+                        case 'pending': return '等待中';
+                        case 'uploading': return '上传中 ' + Math.round(item.progress * 100) + '%';
+                        case 'done': return '完成';
+                        case 'error': return '失败：' + (item.error || '未知错误');
+                        default: return item.status;
+                    }
+                }
+
+                function statusColor(item) {
+                    switch (item.status) {
+                        case 'pending': return '#888';
+                        case 'uploading': return '#00a4dc';
+                        case 'done': return '#2d8a2d';
+                        case 'error': return '#d33';
+                        default: return '#888';
+                    }
+                }
+
+                function renderFileList() {
+                    var listEl = $('fileList');
+                    listEl.innerHTML = '';
+                    pendingFiles.forEach(function (item, idx) {
+                        var div = document.createElement('div');
+                        div.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:10px 12px;margin-bottom:8px;';
+                        var head = document.createElement('div');
+                        head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;';
+                        var nameWrap = document.createElement('div');
+                        nameWrap.style.cssText = 'flex:1;min-width:0;';
+                        var name = document.createElement('span');
+                        name.style.cssText = 'font-weight:500;word-break:break-all;';
+                        name.textContent = item.file.name;
+                        var size = document.createElement('span');
+                        size.style.cssText = 'color:#888;font-size:12px;margin-left:8px;';
+                        size.textContent = formatSize(item.file.size);
+                        nameWrap.appendChild(name);
+                        nameWrap.appendChild(size);
+                        var status = document.createElement('span');
+                        status.style.cssText = 'font-size:12px;padding:2px 8px;border-radius:10px;background:' + statusColor(item) + '22;color:' + statusColor(item) + ';';
+                        status.textContent = statusText(item);
+                        head.appendChild(nameWrap);
+                        head.appendChild(status);
+                        var bar = document.createElement('div');
+                        bar.style.cssText = 'height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin-top:6px;';
+                        var fill = document.createElement('div');
+                        fill.style.cssText = 'height:100%;background:#00a4dc;transition:width 0.2s;width:' + (item.progress * 100) + '%;';
+                        bar.appendChild(fill);
+                        var removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.textContent = '移除';
+                        removeBtn.disabled = (item.status === 'uploading');
+                        removeBtn.style.cssText = 'margin-top:6px;padding:4px 10px;font-size:12px;background:#d33;color:#fff;border:none;border-radius:4px;cursor:pointer;';
+                        (function (index) {
+                            removeBtn.onclick = function () {
+                                if (pendingFiles[index].uploadId) {
+                                    apiDelete('/FileUpload/Cancel?uploadId=' + encodeURIComponent(pendingFiles[index].uploadId));
+                                }
+                                pendingFiles.splice(index, 1);
+                                renderFileList();
+                                updateUploadBtn();
+                            };
+                        })(idx);
+                        div.appendChild(head);
+                        div.appendChild(bar);
+                        div.appendChild(removeBtn);
+                        listEl.appendChild(div);
+                    });
+                }
+
+                function updateUploadBtn() {
+                    var btn = $('uploadAllBtn');
+                    var hasPending = pendingFiles.some(function (f) { return f.status === 'pending'; });
+                    btn.disabled = !hasPending || isUploading || !selectedTargetDir;
+                }
+
+                function uploadOne(item) {
+                    var chunkSize = ((configCache && configCache.ChunkSizeMb) || 5) * 1024 * 1024;
+                    var totalChunks = Math.max(1, Math.ceil(item.file.size / chunkSize));
+                    if (!selectedTargetDir) { item.status = 'error'; item.error = '未选择目标目录'; renderFileList(); return Promise.resolve(); }
+                    item.status = 'uploading'; item.progress = 0; renderFileList();
+                    return apiPostJson('/FileUpload/Init', {
+                        FileName: item.file.name,
+                        TotalChunks: totalChunks,
+                        TotalSize: item.file.size,
+                        TargetDirectory: selectedTargetDir
+                    }).then(function (data) {
+                        item.uploadId = data.UploadId;
+                        var chain = Promise.resolve();
+                        for (var i = 0; i < totalChunks; i++) {
+                            (function (ci) {
+                                chain = chain.then(function () {
+                                    if (item.status === 'error') return;
+                                    var start = ci * chunkSize, end = Math.min(start + chunkSize, item.file.size);
+                                    var blob = item.file.slice(start, end);
+                                    var form = new FormData();
+                                    form.append('uploadId', item.uploadId);
+                                    form.append('chunkIndex', ci);
+                                    form.append('file', blob, item.file.name + '.part' + ci);
+                                    return apiPostForm('/FileUpload/Chunk', form)
+                                        .then(function () { item.progress = (ci + 1) / totalChunks; renderFileList(); });
+                                });
+                            })(i);
+                        }
+                        return chain.then(function () {
+                            return apiPostJson('/FileUpload/Complete', { UploadId: item.uploadId });
+                        }).then(function (result) {
+                            item.status = 'done'; item.progress = 1; renderFileList();
+                            if (result && result.ScanTriggered) showToast(item.file.name + ' 完成，已扫描 ' + (result.ScanTarget || '媒体库'), 'success');
+                            else showToast(item.file.name + ' 完成', 'success');
+                        });
+                    }).catch(function (err) {
+                        item.status = 'error'; item.error = (err && err.message) ? err.message : String(err); renderFileList();
+                        if (item.uploadId) apiDelete('/FileUpload/Cancel?uploadId=' + encodeURIComponent(item.uploadId));
+                    });
+                }
+
+                function uploadAll() {
+                    if (isUploading || !selectedTargetDir) return;
+                    isUploading = true; updateUploadBtn();
+                    var chain = Promise.resolve();
+                    pendingFiles.forEach(function (item) { if (item.status === 'pending') chain = chain.then(function () { return uploadOne(item); }); });
+                    chain.then(function () {
+                        isUploading = false; updateUploadBtn();
+                        var failed = pendingFiles.filter(function (f) { return f.status === 'error'; }).length;
+                        showToast(failed > 0 ? '上传完成，' + failed + ' 个失败' : '全部上传完成', failed > 0 ? 'error' : 'success');
+                    });
+                }
+
+                function clearList() { pendingFiles = []; renderFileList(); updateUploadBtn(); }
+
+                function setupDragDrop() {
+                    var dz = $('dropZone'), fi = $('fileInput');
+                    dz.onclick = function () { fi.click(); };
+                    fi.onchange = function () { if (fi.files && fi.files.length) { addFiles(fi.files); fi.value = ''; } };
+                    dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.style.borderColor = '#00a4dc'; dz.style.color = '#00a4dc'; });
+                    dz.addEventListener('dragleave', function () { dz.style.borderColor = ''; dz.style.color = ''; });
+                    dz.addEventListener('drop', function (e) { e.preventDefault(); dz.style.borderColor = ''; dz.style.color = ''; if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+                }
+
+                function init() { setupDragDrop(); loadConfig(); loadLibraries(); }
+
+                if (document.readyState === 'complete' || document.readyState === 'interactive') { init(); }
+                else { document.addEventListener('DOMContentLoaded', init); }
+                setTimeout(function () { if (!configCache && !libraries.length) init(); }, 500);
+
+                return { saveConfig: saveConfig, onLibraryChange: onLibraryChange, goParent: goParent, selectCurrentDir: selectCurrentDir, clearTarget: clearTarget, uploadAll: uploadAll, clearList: clearList };
+            })();
+        </script>
+    </div>
+</body>
+</html>
