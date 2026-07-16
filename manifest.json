@@ -12,7 +12,7 @@
         "changelog": "首个 beta 版本：媒体库选择、分片上传、自动扫描",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.1.0/jellyfin-plugin-fileupload_v0.1.0.zip",
-        "checksum": "",
+        "checksum": "3e0d3350e0c9d3707949c716249d5ff7fe9852e6",
         "timestamp": "2026-07-16T00:00:00Z"
       }
     ]
@@ -30,7 +30,7 @@
         "changelog": "首个版本：竖屏全屏滑动播放器，从媒体库筛选短时长视频",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.1.0/jellyfin-plugin-shortvideo_v1.0.0.0.zip",
-        "checksum": "",
+        "checksum": "75111e929ba1ac916c6fa8c7602b5afb89a6a945",
         "timestamp": "2026-07-17T00:00:00Z"
       }
     ]
