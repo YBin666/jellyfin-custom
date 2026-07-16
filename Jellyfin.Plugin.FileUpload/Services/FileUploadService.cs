@@ -280,14 +280,49 @@ public class FileUploadService : IFileUploadService
     }
 
     /// <summary>
-    /// 通过 ILibraryManager.FindByPath 判断路径是否属于任何媒体库。
-    /// 向上递归查找父目录，直到找到或到达根。
+    /// 判断路径是否属于任何媒体库。
+    /// 优先使用媒体库物理路径前缀匹配（更可靠），FindByPath 作为兜底。
+    /// 支持大小写不敏感比较（兼容不同文件系统差异）。
     /// </summary>
     private bool IsPathInLibrary(string normalizedPath)
     {
-        var current = normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        if (string.IsNullOrEmpty(current)) return false;
+        var trimmed = normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.IsNullOrEmpty(trimmed)) return false;
 
+        var libs = GetMediaLibraries();
+        if (libs.Count > 0)
+        {
+            foreach (var lib in libs)
+            {
+                foreach (var libPath in lib.Paths)
+                {
+                    var normalizedLibPath = NormalizeDirPath(libPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (string.IsNullOrEmpty(normalizedLibPath)) continue;
+
+                    if (trimmed.Equals(normalizedLibPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogDebug("FileUpload: 路径 {Path} 精确匹配媒体库路径 {LibPath}", normalizedPath, libPath);
+                        return true;
+                    }
+
+                    if (trimmed.StartsWith(normalizedLibPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                        || trimmed.StartsWith(normalizedLibPath + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogDebug("FileUpload: 路径 {Path} 前缀匹配媒体库路径 {LibPath}", normalizedPath, libPath);
+                        return true;
+                    }
+                }
+            }
+
+            _logger.LogInformation("FileUpload: 路径 {Path} 不匹配任何媒体库路径（共 {Count} 个媒体库）",
+                normalizedPath, libs.Count);
+            foreach (var lib in libs)
+            {
+                _logger.LogInformation("FileUpload:   媒体库 {Name}: {Paths}", lib.Name, string.Join(";", lib.Paths));
+            }
+        }
+
+        var current = trimmed;
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         while (!string.IsNullOrEmpty(current))
@@ -300,7 +335,7 @@ public class FileUploadService : IFileUploadService
                 var item = _libraryManager.FindByPath(current, true);
                 if (item != null)
                 {
-                    _logger.LogDebug("FileUpload: 路径 {Path} 匹配媒体库项 {Name} ({ItemType})",
+                    _logger.LogDebug("FileUpload: 路径 {Path} 通过 FindByPath 匹配媒体库项 {Name} ({ItemType})",
                         normalizedPath, item.Name, item.GetType().Name);
                     return true;
                 }

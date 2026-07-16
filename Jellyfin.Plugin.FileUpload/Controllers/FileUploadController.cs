@@ -51,7 +51,7 @@ public class FileUploadController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
         }
         catch (ArgumentException ex)
         {
@@ -74,7 +74,7 @@ public class FileUploadController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
         }
         catch (ArgumentException ex)
         {
@@ -160,7 +160,7 @@ public class FileUploadController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
         }
     }
 }
