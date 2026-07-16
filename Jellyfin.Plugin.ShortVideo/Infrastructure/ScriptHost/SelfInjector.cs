@@ -176,4 +176,88 @@ public static class SelfInjector
         logger.LogInformation("ScriptHost Injector: 注入成功! 已写入 {Path}", indexPath);
         return true;
     }
+
+    public static bool TryUninject(IApplicationPaths appPaths, ILogger logger)
+    {
+        try
+        {
+            logger.LogInformation("ScriptHost Injector: 开始卸载清理...");
+            var webPath = ResolveWebPath(appPaths, logger);
+            if (webPath == null)
+            {
+                logger.LogInformation("ScriptHost Injector: 未找到 jellyfin-web 目录，无需清理。");
+                return true;
+            }
+
+            var indexPath = Path.Combine(webPath, "index.html");
+            if (!File.Exists(indexPath))
+            {
+                logger.LogInformation("ScriptHost Injector: index.html 不存在，无需清理。");
+                return true;
+            }
+
+            logger.LogInformation("ScriptHost Injector: 读取 index.html: {Path}", indexPath);
+            var html = File.ReadAllText(indexPath, Encoding.UTF8);
+
+            if (!html.Contains(InjectMarker, StringComparison.Ordinal))
+            {
+                logger.LogInformation("ScriptHost Injector: index.html 未包含注入标记，无需清理。");
+                return true;
+            }
+
+            // 移除注入的 script 标记和标签
+            var cleaned = html;
+            var pattern = Regex.Escape(InjectMarker) + @"\s*\n?\s*" +
+                Regex.Escape("<script src=\"/ScriptHost/Inject.js\"></script>") + @"\s*\n?";
+            cleaned = Regex.Replace(cleaned, pattern, string.Empty);
+
+            if (cleaned == html)
+            {
+                logger.LogInformation("ScriptHost Injector: 正则未匹配到注入内容，尝试简单字符串替换...");
+                // 兜底：逐行移除
+                var lines = html.Split('\n');
+                var newLines = new List<string>();
+                var skipNext = false;
+                foreach (var line in lines)
+                {
+                    if (skipNext)
+                    {
+                        skipNext = false;
+                        if (line.Trim().StartsWith("<script")) continue;
+                    }
+                    if (line.Contains(InjectMarker, StringComparison.Ordinal))
+                    {
+                        skipNext = true;
+                        continue;
+                    }
+                    newLines.Add(line);
+                }
+                cleaned = string.Join("\n", newLines);
+            }
+
+            if (cleaned == html)
+            {
+                logger.LogWarning("ScriptHost Injector: 未能清理注入内容，跳过。");
+                return false;
+            }
+
+            var tmpPath = indexPath + ".scripthost.tmp";
+            File.WriteAllText(tmpPath, cleaned, Encoding.UTF8);
+            File.Copy(tmpPath, indexPath, overwrite: true);
+            try { File.Delete(tmpPath); } catch { }
+
+            logger.LogInformation("ScriptHost Injector: 卸载清理完成，已从 index.html 移除注入。");
+            return true;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogWarning(ex, "ScriptHost Injector: 没有 index.html 的写权限，无法清理注入。");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "ScriptHost Injector: TryUninject 发生异常");
+            return false;
+        }
+    }
 }
