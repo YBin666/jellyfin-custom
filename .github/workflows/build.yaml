@@ -100,6 +100,7 @@ jobs:
 
       # ==================== Create Release ====================
       - name: Create Release
+        id: create_release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
@@ -110,16 +111,40 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
 
+      # ==================== Recalculate checksum from Release assets ====================
+      - name: Recalculate checksum from Release
+        id: release_checksum
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          FU_PKG="${{ steps.pkg_fileupload.outputs.pkg_name }}"
+          SV_PKG="${{ steps.pkg_shortvideo.outputs.pkg_name }}"
+
+          FU_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${TAG_VERSION}/${FU_PKG}"
+          SV_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${TAG_VERSION}/${SV_PKG}"
+
+          echo "Downloading ${FU_URL} ..."
+          curl -sL -o "/tmp/${FU_PKG}" "${FU_URL}"
+          FU_SHA1=$(sha1sum "/tmp/${FU_PKG}" | awk '{print $1}')
+          echo "fu_sha1=${FU_SHA1}"
+          echo "fu_sha1=${FU_SHA1}" >> $GITHUB_OUTPUT
+
+          echo "Downloading ${SV_URL} ..."
+          curl -sL -o "/tmp/${SV_PKG}" "${SV_URL}"
+          SV_SHA1=$(sha1sum "/tmp/${SV_PKG}" | awk '{print $1}')
+          echo "sv_sha1=${SV_SHA1}"
+          echo "sv_sha1=${SV_SHA1}" >> $GITHUB_OUTPUT
+
       # ==================== Update and commit manifest.json ====================
       - name: Update and commit manifest.json
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           FU_VERSION="${{ steps.pkg_fileupload.outputs.version }}"
-          FU_SHA1="${{ steps.pkg_fileupload.outputs.sha1 }}"
+          FU_SHA1="${{ steps.release_checksum.outputs.fu_sha1 }}"
           FU_PKG="${{ steps.pkg_fileupload.outputs.pkg_name }}"
           SV_VERSION="${{ steps.pkg_shortvideo.outputs.version }}"
-          SV_SHA1="${{ steps.pkg_shortvideo.outputs.sha1 }}"
+          SV_SHA1="${{ steps.release_checksum.outputs.sv_sha1 }}"
           SV_PKG="${{ steps.pkg_shortvideo.outputs.pkg_name }}"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           FU_URL="https://github.com/YBin666/jellyfin-custom/releases/download/v${TAG_VERSION}/${FU_PKG}"

@@ -14,14 +14,6 @@
         "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.2.0/jellyfin-plugin-fileupload_v0.2.0.zip",
         "checksum": "e97535dfb5edb66362e2e52c75ab3a8c2bd7bff4",
         "timestamp": "2026-07-16T17:25:37Z"
-      },
-      {
-        "version": "0.1.0.0",
-        "changelog": "首个 beta 版本：媒体库选择、分片上传、自动扫描",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.1.0/jellyfin-plugin-fileupload_v0.1.0.zip",
-        "checksum": "3e0d3350e0c9d3707949c716249d5ff7fe9852e6",
-        "timestamp": "2026-07-16T00:00:00Z"
       }
     ]
   },
