@@ -11,6 +11,14 @@ Category: General
 Description: 从 Jellyfin 配置页直接上传文件到媒体库目录，支持大文件分片、拖拽、批量上传，上传后自动触发媒体库扫描。
 Overview: 在插件配置页提供文件上传区域，把文件写入指定的媒体库目录，并自动触发对应媒体库扫描入库。
 Versions:
+  - Version: "0.3.0.0"
+    Changelog: |2-
+      移除媒体库列表页浮动按钮，仅保留插件配置页上传入口
+        - 删除 overlay.js 嵌入资源和 OverlayScript 接口
+        - 插件启动时自动清理历史版本注入的 index.html 残留
+        - 卸载时清理注入痕迹（兼容旧版本升级）
+    TargetAbi: "10.11.0.0"
+    SourceUrl: https://github.com/YBin666/jellyfin-custom/releases/download/v0.3.0/jellyfin-plugin-fileupload_v0.3.0.0.zip
   - Version: "0.1.0.0"
     Changelog: |2-
       首个 beta 版本
