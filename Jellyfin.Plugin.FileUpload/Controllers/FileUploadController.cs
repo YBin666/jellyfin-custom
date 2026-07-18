@@ -3,7 +3,6 @@ using Jellyfin.Plugin.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.FileUpload.Controllers;
 
@@ -17,14 +16,10 @@ namespace Jellyfin.Plugin.FileUpload.Controllers;
 public class FileUploadController : ControllerBase
 {
     private readonly IFileUploadService _service;
-    private readonly ILogger<FileUploadController> _logger;
 
-    public FileUploadController(
-        IFileUploadService service,
-        ILogger<FileUploadController> logger)
+    public FileUploadController(IFileUploadService service)
     {
         _service = service;
-        _logger = logger;
     }
 
     /// <summary>获取所有 Jellyfin 媒体库及其物理路径。</summary>
