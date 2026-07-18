@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.3.0.0",
+        "changelog": "版本 0.3.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.3.0/jellyfin-plugin-fileupload_v0.3.0.zip",
+        "checksum": "f4cbefd5e5ba7c2a521af6193ef2b68b",
+        "timestamp": "2026-07-18T07:01:42Z"
+      },
+      {
         "version": "0.2.0.0",
         "changelog": "版本 0.2.0",
         "targetAbi": "10.11.0.0",
@@ -29,9 +37,9 @@
         "version": "1.0.0.0",
         "changelog": "版本 1.0.0.0",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.2.0/jellyfin-plugin-shortvideo_v1.0.0.0.zip",
-        "checksum": "25d44d7400ba2acad101bf2218524481",
-        "timestamp": "2026-07-16T17:25:37Z"
+        "sourceUrl": "https://github.com/YBin666/jellyfin-custom/releases/download/v0.3.0/jellyfin-plugin-shortvideo_v1.0.0.0.zip",
+        "checksum": "6b8ae94ffa069836a3be3e9a201c4701",
+        "timestamp": "2026-07-18T07:01:42Z"
       }
     ]
   }
