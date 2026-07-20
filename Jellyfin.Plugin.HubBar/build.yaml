@@ -1,0 +1,51 @@
+name: Build HubBar Plugin
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Jellyfin.Plugin.HubBar/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Jellyfin.Plugin.HubBar/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install pnpm
+      run: npm install -g pnpm
+    
+    - name: Build React app
+      working-directory: Jellyfin.Plugin.HubBar/Web/react-app
+      run: |
+        pnpm install
+        pnpm run build
+    
+    - name: Build .NET plugin
+      working-directory: Jellyfin.Plugin.HubBar
+      run: dotnet publish -c Release
+    
+    - name: Pack plugin
+      working-directory: Jellyfin.Plugin.HubBar
+      run: zip -r Jellyfin.Plugin.HubBar.zip bin/Release/net9.0/publish/*
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Jellyfin.Plugin.HubBar
+        path: Jellyfin.Plugin.HubBar/Jellyfin.Plugin.HubBar.zip
