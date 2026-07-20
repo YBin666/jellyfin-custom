@@ -1,13 +1,13 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import HubBar from './components/HubBar';
+import NavBar from './components/NavBar';
 import HomePage from './components/HomePage';
 import SettingsPage from './components/SettingsPage';
 import { registerRoute, initInfrastructure } from './common/infrastructure';
 
 function mountHome() {
   const container = document.createElement('div');
-  container.id = 'hubbar-home-root';
+  container.id = 'navbar-home-root';
   container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100vh;height:100dvh;z-index:9997;overflow:hidden;';
   document.body.appendChild(container);
 
@@ -33,7 +33,7 @@ function mountHome() {
 
 function mountSettings() {
   const container = document.createElement('div');
-  container.id = 'hubbar-settings-root';
+  container.id = 'navbar-settings-root';
   container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100vh;height:100dvh;z-index:9997;overflow:hidden;';
   document.body.appendChild(container);
 
@@ -57,9 +57,9 @@ function mountSettings() {
   };
 }
 
-function createHubBar(container) {
+function createNavBar(container) {
   const root = createRoot(container);
-  root.render(<HubBar />);
+  root.render(<NavBar />);
 }
 
 function initApp() {
@@ -70,12 +70,12 @@ function initApp() {
   });
 
   registerRoute({
-    name: 'hub-settings',
+    name: 'nav-settings',
     title: '设置 - Jellyfin',
     show: () => mountSettings()
   });
 
-  initInfrastructure(createHubBar);
+  initInfrastructure(createNavBar);
 }
 
 if (document.readyState === 'loading') {

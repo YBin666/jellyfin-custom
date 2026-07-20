@@ -1,14 +1,14 @@
-name: Build HubBar Plugin
+name: Build NavBar Plugin
 
 on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'Jellyfin.Plugin.HubBar/**'
+      - 'Jellyfin.Plugin.NavBar/**'
   pull_request:
     branches: [ main ]
     paths:
-      - 'Jellyfin.Plugin.HubBar/**'
+      - 'Jellyfin.Plugin.NavBar/**'
 
 jobs:
   build:
@@ -31,21 +31,21 @@ jobs:
       run: npm install -g pnpm
     
     - name: Build React app
-      working-directory: Jellyfin.Plugin.HubBar/Web/react-app
+      working-directory: Jellyfin.Plugin.NavBar/Web/react-app
       run: |
         pnpm install
         pnpm run build
     
     - name: Build .NET plugin
-      working-directory: Jellyfin.Plugin.HubBar
+      working-directory: Jellyfin.Plugin.NavBar
       run: dotnet publish -c Release
     
     - name: Pack plugin
-      working-directory: Jellyfin.Plugin.HubBar
-      run: zip -r Jellyfin.Plugin.HubBar.zip bin/Release/net9.0/publish/*
+      working-directory: Jellyfin.Plugin.NavBar
+      run: zip -r Jellyfin.Plugin.NavBar.zip bin/Release/net9.0/publish/*
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Jellyfin.Plugin.HubBar
-        path: Jellyfin.Plugin.HubBar/Jellyfin.Plugin.HubBar.zip
+        name: Jellyfin.Plugin.NavBar
+        path: Jellyfin.Plugin.NavBar/Jellyfin.Plugin.NavBar.zip

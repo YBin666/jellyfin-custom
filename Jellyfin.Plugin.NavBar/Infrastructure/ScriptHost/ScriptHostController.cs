@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.HubBar.Infrastructure.ScriptHost;
+namespace Jellyfin.Plugin.NavBar.Infrastructure.ScriptHost;
 
 [ApiController]
-[Route("HubBar")]
+[Route("NavBar")]
 public class ScriptHostController : ControllerBase
 {
     private readonly ILogger<ScriptHostController> _logger;
@@ -20,7 +20,7 @@ public class ScriptHostController : ControllerBase
     [AllowAnonymous]
     public IActionResult InjectJs()
     {
-        _logger.LogInformation("HubBar: 收到 /HubBar/Inject.js 请求");
+        _logger.LogInformation("NavBar: 收到 /NavBar/Inject.js 请求");
 
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = assembly.GetManifestResourceNames()
@@ -28,20 +28,20 @@ public class ScriptHostController : ControllerBase
 
         if (resourceName == null)
         {
-            _logger.LogWarning("HubBar: inject.js 嵌入资源未找到");
-            return Content("console.log('[HubBar] inject.js not found');", "application/javascript");
+            _logger.LogWarning("NavBar: inject.js 嵌入资源未找到");
+            return Content("console.log('[NavBar] inject.js not found');", "application/javascript");
         }
 
         using var stream = assembly.GetManifestResourceStream(resourceName);
         if (stream == null)
         {
-            _logger.LogWarning("HubBar: 无法打开 inject.js 资源流");
-            return Content("console.log('[HubBar] inject.js stream error');", "application/javascript");
+            _logger.LogWarning("NavBar: 无法打开 inject.js 资源流");
+            return Content("console.log('[NavBar] inject.js stream error');", "application/javascript");
         }
 
         using var reader = new StreamReader(stream);
         var content = reader.ReadToEnd();
-        _logger.LogInformation("HubBar: 返回 Inject.js，大小 = {Size} 字节", content.Length);
+        _logger.LogInformation("NavBar: 返回 Inject.js，大小 = {Size} 字节", content.Length);
         return Content(content, "application/javascript");
     }
 
@@ -66,7 +66,7 @@ public class ScriptHostController : ControllerBase
     {
         return Ok(new
         {
-            enableHubBar = true,
+            enableNavBar = true,
             enableHomeButton = true,
             enableShortVideoButton = true,
             enableSettingsButton = true,
@@ -78,7 +78,7 @@ public class ScriptHostController : ControllerBase
     [AllowAnonymous]
     public IActionResult SaveConfig([FromBody] dynamic config)
     {
-        _logger.LogInformation("HubBar: 收到配置保存请求");
+        _logger.LogInformation("NavBar: 收到配置保存请求");
         return Ok(new { success = true });
     }
 
@@ -86,7 +86,7 @@ public class ScriptHostController : ControllerBase
     [AllowAnonymous]
     public IActionResult GetMainJs()
     {
-        _logger.LogInformation("HubBar: 收到 /HubBar/main.js 请求");
+        _logger.LogInformation("NavBar: 收到 /NavBar/main.js 请求");
 
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = assembly.GetManifestResourceNames()
@@ -94,20 +94,20 @@ public class ScriptHostController : ControllerBase
 
         if (resourceName == null)
         {
-            _logger.LogWarning("HubBar: main.js 嵌入资源未找到");
-            return Content("console.log('[HubBar] main.js not found');", "application/javascript");
+            _logger.LogWarning("NavBar: main.js 嵌入资源未找到");
+            return Content("console.log('[NavBar] main.js not found');", "application/javascript");
         }
 
         using var stream = assembly.GetManifestResourceStream(resourceName);
         if (stream == null)
         {
-            _logger.LogWarning("HubBar: 无法打开 main.js 资源流");
-            return Content("console.log('[HubBar] main.js stream error');", "application/javascript");
+            _logger.LogWarning("NavBar: 无法打开 main.js 资源流");
+            return Content("console.log('[NavBar] main.js stream error');", "application/javascript");
         }
 
         using var reader = new StreamReader(stream);
         var content = reader.ReadToEnd();
-        _logger.LogInformation("HubBar: 返回 main.js，大小 = {Size} 字节", content.Length);
+        _logger.LogInformation("NavBar: 返回 main.js，大小 = {Size} 字节", content.Length);
         return Content(content, "application/javascript");
     }
 
@@ -115,7 +115,7 @@ public class ScriptHostController : ControllerBase
     [AllowAnonymous]
     public IActionResult GetChunkJs(string fileName)
     {
-        _logger.LogInformation("HubBar: 收到 /HubBar/{FileName}.js 请求", fileName);
+        _logger.LogInformation("NavBar: 收到 /NavBar/{FileName}.js 请求", fileName);
 
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = assembly.GetManifestResourceNames()
@@ -123,14 +123,14 @@ public class ScriptHostController : ControllerBase
 
         if (resourceName == null)
         {
-            _logger.LogWarning("HubBar: {FileName}.js 嵌入资源未找到", fileName);
+            _logger.LogWarning("NavBar: {FileName}.js 嵌入资源未找到", fileName);
             return NotFound();
         }
 
         using var stream = assembly.GetManifestResourceStream(resourceName);
         if (stream == null)
         {
-            _logger.LogWarning("HubBar: 无法打开 {FileName}.js 资源流", fileName);
+            _logger.LogWarning("NavBar: 无法打开 {FileName}.js 资源流", fileName);
             return NotFound();
         }
 
@@ -143,7 +143,7 @@ public class ScriptHostController : ControllerBase
     [AllowAnonymous]
     public IActionResult GetAsset(string fileName)
     {
-        _logger.LogInformation("HubBar: 收到 /HubBar/assets/{FileName} 请求", fileName);
+        _logger.LogInformation("NavBar: 收到 /NavBar/assets/{FileName} 请求", fileName);
 
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = assembly.GetManifestResourceNames()
@@ -151,14 +151,14 @@ public class ScriptHostController : ControllerBase
 
         if (resourceName == null)
         {
-            _logger.LogWarning("HubBar: assets/{FileName} 嵌入资源未找到", fileName);
+            _logger.LogWarning("NavBar: assets/{FileName} 嵌入资源未找到", fileName);
             return NotFound();
         }
 
         using var stream = assembly.GetManifestResourceStream(resourceName);
         if (stream == null)
         {
-            _logger.LogWarning("HubBar: 无法打开 assets/{FileName} 资源流", fileName);
+            _logger.LogWarning("NavBar: 无法打开 assets/{FileName} 资源流", fileName);
             return NotFound();
         }
 

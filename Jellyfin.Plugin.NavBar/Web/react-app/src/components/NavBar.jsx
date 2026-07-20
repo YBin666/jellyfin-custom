@@ -6,7 +6,7 @@ const navItems = [
   { id: 'settings', icon: '⚙️', label: '设置' }
 ];
 
-export default function HubBar() {
+export default function NavBar() {
   const [activeTab, setActiveTab] = useState('home');
   const [showAnimation, setShowAnimation] = useState(false);
 
@@ -15,7 +15,7 @@ export default function HubBar() {
       const hash = location.hash || '#/home';
       if (hash.startsWith('#/shorts')) {
         setActiveTab('shorts');
-      } else if (hash.startsWith('#/hub-settings')) {
+      } else if (hash.startsWith('#/nav-settings')) {
         setActiveTab('settings');
       } else {
         setActiveTab('home');
@@ -41,7 +41,7 @@ export default function HubBar() {
         location.hash = '#/shorts';
         break;
       case 'settings':
-        location.hash = '#/hub-settings';
+        location.hash = '#/nav-settings';
         break;
     }
   };

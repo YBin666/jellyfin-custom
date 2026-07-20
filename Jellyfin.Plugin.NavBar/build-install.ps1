@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$pluginName = "Jellyfin.Plugin.HubBar"
-$projectPath = "$PSScriptRoot\$pluginName.csproj"
+$pluginName = "Jellyfin.Plugin.NavBar"
+$projectPath = "$PSScriptRoot\Jellyfin.Plugin.NavBar.csproj"
 $publishDir = "$PSScriptRoot\bin\Release\net9.0\publish"
 
 Write-Host "=== Building $pluginName ===" -ForegroundColor Cyan

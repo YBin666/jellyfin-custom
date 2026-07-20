@@ -2,7 +2,7 @@ const customRoutes = [];
 let originalTitle = document.title;
 let previousHash = null;
 let isNavigatingBack = false;
-let hubBarInstance = null;
+let navBarInstance = null;
 
 function matchRoute(name) {
   return new RegExp('^#/' + name + '([/?]|$)').test(location.hash || '');
@@ -13,7 +13,7 @@ function isCustomRoute() {
 }
 
 function isAllowedRoute() {
-  return /^#\/(home|list|shorts|hub-settings)([\/?]|$)/.test(location.hash || '');
+  return /^#\/(home|list|shorts|nav-settings)([\/?]|$)/.test(location.hash || '');
 }
 
 export function registerRoute(cfg) {
@@ -101,56 +101,56 @@ function handleRouteChange() {
     cleanupCustomPages();
     previousHash = null;
     if (wasCustom) {
-      console.log('[HubBar] 已退出自定义路由，当前:', location.hash);
+      console.log('[NavBar] 已退出自定义路由，当前:', location.hash);
     }
   }
-  updateHubBarVisibility();
+  updateNavBarVisibility();
 }
 
-function updateHubBarVisibility() {
-  if (!hubBarInstance) return;
-  hubBarInstance.style.display = isAllowedRoute() ? 'flex' : 'none';
+function updateNavBarVisibility() {
+  if (!navBarInstance) return;
+  navBarInstance.style.display = isAllowedRoute() ? 'flex' : 'none';
 }
 
-export function injectHubBar(createHubBar) {
-  if (hubBarInstance) return;
-  if (document.getElementById('hubbar-root')) return;
+export function injectNavBar(createNavBar) {
+  if (navBarInstance) return;
+  if (document.getElementById('navbar-root')) return;
   if (!document.body) return;
 
-  hubBarInstance = document.createElement('div');
-  hubBarInstance.id = 'hubbar-root';
-  document.body.appendChild(hubBarInstance);
+  navBarInstance = document.createElement('div');
+  navBarInstance.id = 'navbar-root';
+  document.body.appendChild(navBarInstance);
 
-  createHubBar(hubBarInstance);
+  createNavBar(navBarInstance);
   handleRouteChange();
 }
 
-export function initInfrastructure(createHubBar) {
+export function initInfrastructure(createNavBar) {
   const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
   if (IS_DEV) {
-    console.log('[HubBar] 开发模式，跳过Jellyfin DOM注入');
+    console.log('[NavBar] 开发模式，跳过Jellyfin DOM注入');
     return;
   }
 
   if (document.body) {
-    injectHubBar(createHubBar);
+    injectNavBar(createNavBar);
   } else {
     document.addEventListener('DOMContentLoaded', () => {
-      injectHubBar(createHubBar);
+      injectNavBar(createNavBar);
     });
   }
 
   window.addEventListener('hashchange', () => {
-    if (!hubBarInstance) {
-      injectHubBar(createHubBar);
+    if (!navBarInstance) {
+      injectNavBar(createNavBar);
     } else {
       handleRouteChange();
     }
   });
 
   setInterval(() => {
-    if (!hubBarInstance) {
-      injectHubBar(createHubBar);
+    if (!navBarInstance) {
+      injectNavBar(createNavBar);
     } else {
       handleRouteChange();
     }

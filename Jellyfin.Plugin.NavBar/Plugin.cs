@@ -6,7 +6,7 @@ using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.HubBar;
+namespace Jellyfin.Plugin.NavBar;
 
 public class Plugin : BasePlugin<Configuration.PluginConfiguration>, IDisposable
 {
@@ -27,20 +27,20 @@ public class Plugin : BasePlugin<Configuration.PluginConfiguration>, IDisposable
         Logger = logger;
         Instance = this;
 
-        logger.LogInformation("==== HubBar Plugin: 构造函数开始执行 ====");
+        logger.LogInformation("==== NavBar Plugin: 构造函数开始执行 ====");
 
-        logger.LogInformation("HubBar Plugin: 开始执行 JS 注入...");
+        logger.LogInformation("NavBar Plugin: 开始执行 JS 注入...");
         var injectResult = Infrastructure.ScriptHost.SelfInjector.TryInject(applicationPaths, logger);
-        logger.LogInformation("HubBar Plugin: JS 注入结果 = {Result}", injectResult);
+        logger.LogInformation("NavBar Plugin: JS 注入结果 = {Result}", injectResult);
 
-        logger.LogInformation("==== HubBar Plugin: 构造函数执行完毕 ====");
+        logger.LogInformation("==== NavBar Plugin: 构造函数执行完毕 ====");
     }
 
     public static Plugin? Instance { get; private set; }
 
     public ILogger<Plugin> Logger { get; }
 
-    public override string Name => "HubBar";
+    public override string Name => "NavBar";
 
     public override Guid Id => Guid.Parse(PluginGuidString);
 
@@ -63,13 +63,13 @@ public class Plugin : BasePlugin<Configuration.PluginConfiguration>, IDisposable
             {
                 if (IsMarkedForDeletion())
                 {
-                    _logger.LogInformation("HubBar Plugin: 检测到插件已标记为删除，开始清理 index.html 注入...");
+                    _logger.LogInformation("NavBar Plugin: 检测到插件已标记为删除，开始清理 index.html 注入...");
                     Infrastructure.ScriptHost.SelfInjector.TryUninject(_appPaths, _logger);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "HubBar Plugin: Dispose 时清理注入失败");
+                _logger.LogError(ex, "NavBar Plugin: Dispose 时清理注入失败");
             }
         }
     }
@@ -85,7 +85,7 @@ public class Plugin : BasePlugin<Configuration.PluginConfiguration>, IDisposable
             var metaPath = Path.Combine(pluginDir, "meta.json");
             if (!File.Exists(metaPath))
             {
-                _logger.LogDebug("HubBar Plugin: meta.json 不存在，无法判断卸载状态");
+                _logger.LogDebug("NavBar Plugin: meta.json 不存在，无法判断卸载状态");
                 return false;
             }
 
@@ -94,13 +94,13 @@ public class Plugin : BasePlugin<Configuration.PluginConfiguration>, IDisposable
             if (doc.RootElement.TryGetProperty("status", out var statusProp))
             {
                 var status = statusProp.GetString();
-                _logger.LogDebug("HubBar Plugin: meta.json status = {Status}", status);
+                _logger.LogDebug("NavBar Plugin: meta.json status = {Status}", status);
                 return string.Equals(status, "Deleted", StringComparison.OrdinalIgnoreCase);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "HubBar Plugin: 读取 meta.json 失败");
+            _logger.LogWarning(ex, "NavBar Plugin: 读取 meta.json 失败");
         }
         return false;
     }

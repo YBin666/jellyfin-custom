@@ -2,13 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <RootNamespace>Jellyfin.Plugin.HubBar</RootNamespace>
+    <RootNamespace>Jellyfin.Plugin.NavBar</RootNamespace>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <Version>1.0.0.0</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>Jellyfin.Plugin.HubBar</AssemblyName>
+    <AssemblyName>Jellyfin.Plugin.NavBar</AssemblyName>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
   </PropertyGroup>
 
